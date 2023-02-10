@@ -4,3 +4,5 @@ Scripts for Jimenez, Lucas, Long, Tytell (2023), "Flexibility is a hidden axis o
 
 Phylogenies are from Rabosky, D. L., Chang, J., Title, P. O., Cowman, P. F., Sallan, L., Friedman, M., Kaschner, K., Garilao, C., Near, T. J., Coll, M., et al. (2018). An inverse latitudinal gradient in speciation rate for marine fishes. Nature 559, 392–395.
 [https://fishtreeoflife.org/].
+
+Main files are calculate_stiffnesses.Rmd, which builds Table 1, and plot_flexion.Rmd, which builds Figure 3 and S1.
