@@ -1,0 +1,38 @@
+﻿Species,Species.corrected,Species.match,Common name,Family,Order,Group,Type,V,L,E1,E2,E3,E4,E5,Q1,Q2,Q3,Q4,Q5,G1,G2,G3,G4,G5,V1,V2,V3,V4,V5
+Enhydrina schistosa,,,Beaked sea snake,Elapidae,Squamata,Reptile,EN,203,90,0.29,0.17,0.11,0.14,0.29,0.01,0.02,0.02,0.02,0.01,1.2,0.61,0.51,0.34,0.4,46,34,30,35,58
+Anguilla anguilla,,,European eel,Anguillidae,Anguilliformes,Bony fish,EN,113,91,0.15,0.16,0.18,0.21,0.3,0.05,0.05,0.05,0.04,0.03,0.92,0.83,0.83,0.63,0.4,16,20,21,23,33
+Gymnammodytes cicerellus,,Ammodytes hexapterus,Mediterranean sand eel,Ammodytidae,Trachiniformes,Bony fish,BN,64,10.3,0.02,0.23,0.24,0.24,0.27,0.05,0.06,0.06,0.06,0.03,0.8,0.75,0.75,0.69,0.85,2,15,15,15,17
+Trichiurus lepturus,,,Largehead hairtail,Trichiuridae,Perciformes,Bony fish,EN,175,124,0.02,0.09,0.12,0.22,0.55,0.03,0.03,0.03,0.02,0.01,0.57,0.62,0.6,0.5,0.4,16,30,36,43,50
+Sprattus sprattus phalericus,Sprattus sprattus,,Sprat,Clupeidae,Clupeiformes,Bony fish,PN/EN,48,10,0,0.2,0.22,0.25,0.33,0.08,0.11,0.1,0.08,0.05,0.51,0.44,0.42,0.41,0.33,2,14,12,11,9
+Engraulis encrasicholus,Engraulis encrasicolus,,European anchovy,Engraulidae,Clupeiformes,Bony fish,EN,47,10,0,0.2,0.21,0.24,0.35,0.09,0.12,0.14,0.11,0.06,0.82,0.68,0.69,0.67,0.58,3,10,10,12,12
+Clupeonella delicatula delicatula,,Clupea harengus,Black sea sprat,Clupeidae,Clupeiformes,Bony fish,PN/EN,42,7,0,0.19,0.21,0.25,0.35,0.1,0.15,0.15,0.12,0.06,0.77,0.43,0.42,0.43,0.31,0,10,11,11,10
+Alosa kessleri pontica,,Alosa caspia caspia,Caspian shad,Clupeidae,Clupeiformes,Bony fish,EN,49,25,0,0.18,0.22,0.26,0.34,0.08,0.12,0.13,0.1,0.06,0.43,0.48,0.43,0.44,0.4,0,14,12,12,11
+Belone belone euxini,Belone belone,,Garfish,Belonidae,Beloniformes,Bony fish,EN,75,50.4,0,0.16,0.39,0.33,0.12,0.01,0.04,0.04,0.04,0.03,1.61,0.67,0.67,0.63,0.9,0,13,20,21,21
+Spicara smaris,,,Picarel,Sparidae,Perciformes,Bony fish,EN,24,15.5,0,0.15,0.22,0.27,0.36,0.11,0.16,0.18,0.14,0.07,0.77,0.43,0.42,0.43,0.31,0,7,6,6,5
+Sciaena umbra,,Umbrina canariensis,Brown meagre,Sciaenidae,Perciformes,Bony fish,BN,25,27.1,0,0.13,0.18,0.25,0.44,0.12,0.2,0.2,0.15,0.07,0.65,0.52,0.52,0.5,0.55,1,7,6,6,5
+Squalus acanthias,,,Spiny dogfish,Squalidae,Squaliformes,Cartilaginous fish,EN,,112,0,0.06,0.13,0.23,0.58,0.07,0.1,0.06,0.04,0.02,1.66,0.91,0.89,1,1,,,,,
+Tretrapturus belone,Tetrapturus belone,,Mediterranean spearfish,Istiophoridae,Istiophoriformes,Bony fish,EN,24,149.5,0,0.06,0.47,0.35,0.12,0.01,0.06,0.06,0.05,0.04,1,0.48,0.53,0.48,0.65,0,6,6,6,6
+Pomatomus saltatrix,,,Bluefish,Pomatomidae,Perciformes,Bony fish,EN,26,60.2,0,0.06,0.19,0.36,0.39,0.1,0.15,0.14,0.12,0.06,0.55,0.58,0.57,0.53,0.75,0,7,7,6,6
+Sarda sarda,,,Atlantic bonito,Scombridae,Scombriformes,Bony fish,EN,53,48.8,0,0.05,0.23,0.38,0.34,0.08,0.15,0.16,0.11,0.04,0.75,0.68,0.68,0.55,1.49,1,14,13,12,13
+Tachurus mediterraneus ponticus,Trachurus mediterraneus,,Mediterranean horse mackerel,Carangidae,Perciformes,Bony fish,EN,24,43.3,0,0.05,0.2,0.43,0.32,0.1,0.15,0.16,0.12,0.06,0.74,0.67,0.64,0.83,1.51,0,8,6,5,5
+Scomberomorus commersioni,Scomberomorus commerson,,Spanish mackerel,Scombridae,Scombriformes,Bony fish,EN,49,59.7,0,0.05,0.13,0.42,0.4,0.08,0.13,0.13,0.1,0.05,0.9,0.69,0.57,0.64,0.97,3,14,11,11,10
+Lebistes reticulatus,Poecilia reticulata,,Guppy,Poeciliidae,Cyprinodontiformes,Bony fish,BN,30,1.6,0,0.05,0.12,0.37,0.46,0.15,0.21,0.19,0.13,0.1,1.43,0.88,0.75,0.5,0.3,0,6,8,8,8
+Gambusia affinis holbrooki,Gambusia affinis,,Western mosquitofish,Poeciliidae,Cyprinodontiformes,Bony fish,BN,32,2,0,0.05,0.12,0.37,0.46,0.1,0.17,0.17,0.12,0.08,1,0.68,0.58,0.53,0.33,0,9,8,8,7
+Odontogadus merlangus,Merlangius merlangus,,Whiting,Gadidae,Gadiformes,Bony fish,BN,53,41.6,0,0.05,0.11,0.25,0.59,0.12,0.16,0.15,0.1,0.04,1,0.66,0.62,0.68,0.67,0,12,11,11,19
+Istiophorus platypterus,,,Indo-Pacific sailfish,Istiophoridae,Istiophoriformes,Bony fish,EN,24,152,0,0.04,0.48,0.36,0.12,0.01,0.06,0.07,0.06,0.04,1.25,0.46,0.42,0.5,0.5,0,4,7,6,7
+Thunnus alalunga,,,Albacore,Scombridae,Scombriformes,Bony fish,EN,39,67,0,0.04,0.13,0.5,0.33,0.11,0.19,0.19,0.13,0.03,0.86,0.72,0.69,0.98,3.45,1,11,10,8,9
+Mugil auratus,Chelon auratus,Chelon parsia,Golden gray mullet,Mugilidae,Mugiliformes,Bony fish,BN,24,34.2,0,0.04,0.13,0.28,0.55,0.12,0.16,0.17,0.12,0.07,0.86,0.71,0.67,0.65,0.6,1,6,5,6,6
+Abramis brama,,,Common bream,Cyprinidae,Cypriniformes,Bony fish,BN,41,50.5,0,0.04,0.12,0.37,0.47,0.11,0.18,0.19,0.14,0.07,0.56,0.33,0.31,0.37,0.55,0,8,12,11,10
+Sphyraena barracuda,,,Great barracuda,Sphyraenidae,Scombriformes,Bony fish,EN,24,93.8,0,0.04,0.09,0.26,0.61,0.06,0.1,0.11,0.11,0.06,0.75,0.69,0.71,0.62,0.75,0,4,6,7,7
+Acipenser guldenstadtri colchicus,Acipenser gueldenstaedtii,,Russian sturgeon,Acipenseridae,Acipenseriformes,Bony fish,BN,100,120,0,0.04,0.07,0.18,0.71,0.08,0.11,0.07,0.04,0.02,1,1,1,1,0.5,0,16,16,18,50
+Scomber scombrus,,,Atlantic mackerel,Scombridae,Scombriformes,Bony fish,EN,31,23.1,0,0.03,0.15,0.3,0.52,0.09,0.15,0.16,0.12,0.04,0.82,0.65,0.76,0.75,1.52,0,8,7,8,8
+Auxis thazard,Auxis thazard thazard,,Frigate tuna,Scombridae,Scombriformes,Bony fish,EN,40,38.9,0,0.03,0.14,0.5,0.33,0.11,0.17,0.17,0.13,0.03,0.88,0.77,0.76,0.7,2.44,3,10,9,8,10
+Xiphophorus helleri,Xiphophorus hellerii,,Green swordtail,Poeciliidae,Cyprinodontiformes,Bony fish,BN,28,4.7,0,0.03,0.12,0.27,0.58,0.12,0.18,0.2,0.15,0.11,1.22,0.63,0.5,0.44,0.27,0,7,7,8,6
+Hirundichthys rondeletii,,,Blackwing flyingfish,Exocoetidae,Beloniformes,Bony fish,EN,47,18,0,0.02,0.12,0.27,0.59,0.1,0.13,0.13,0.11,0.06,0.83,0.93,0.78,0.67,1,1,11,10,12,13
+Coryphana hippurus,Coryphaena hippurus,,Mahi-mahi,Coryphaenidae,Perciformes,Bony fish,EN,31,64,0,0.02,0.06,0.17,0.75,0.12,0.13,0.12,0.09,0.04,0.5,0.48,0.47,0.47,0.67,2,8,7,7,7
+Prionace glauca,,,Blue shark,Carcharinidae,Carcharhiniformes,Cartilaginous fish,EN,,180,0,0.01,0.04,0.14,0.81,0.07,0.18,0.08,0.03,0.02,1.7,1.09,0.67,1.1,0.5,,,,,
+Xiphias gladius,,,Swordfish,Xiphiidae,Istiophoriformes,Bony fish,EN,26,165,0,0,0.1,0.57,0.33,0.02,0.02,0.1,0.09,0.05,2,2,0.62,0.65,1.09,0,0,7,11,8
+Chaetodon striatus,,,Banded butterflyfish,Chaetodontidae,Perciformes,Bony fish,BN,24,11,0,0,0.04,0.18,0.78,0.05,0.05,0.05,0.04,0.03,0.47,0.27,0.18,0.15,0.32,0,6,6,6,6
+Phocoena phocoena,,,Harbor porpoise,Phocoenidae,Artiodactyla,Mammal,EN,62,128.8,0,0,0.02,0.17,0.81,0.11,0.18,0.18,0.11,0.01,1,1,1,1.12,1.75,1,11,14,12,24
+Delphinus delphis,,,Common dolphin,Delphinidae,Artiodactyla,Mammal,EN,67,178.5,0,0,0.02,0.13,0.85,0.08,0.17,0.19,0.11,0.01,0.9,1.08,1.06,1.25,4.2,0,10,17,19,21
+Tursiops truncatus,,,Common bottlenose dolphin,Delphinidae,Artiodactyla,Mammal,EN,54,223,0,0,0.01,0.1,0.89,0.11,0.16,0.17,0.12,0.04,0.96,0.89,1.08,1.5,4.4,0,10,13,14,17
