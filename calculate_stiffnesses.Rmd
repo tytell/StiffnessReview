@@ -1,0 +1,1779 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+library(tidyverse)
+library(gt)
+```
+
+Formulas:
+
+$$EI = \frac{CL}{\theta_{max}}$$
+where $C$ is the bending moment (N m), $L$ is the length of the segment, and $\theta_{max}$ is the bending angle. From Long (1998).
+
+$\eta I$ should work the same way.
+
+Graphs digitized with [https://automeris.io/WebPlotDigitizer/]
+
+# Lamprey
+
+Tytell, E. D., Carr, J. A., Danos, N., Wagenbach, C., Sullivan, C. M., Kiemel, T., Cowan, N. J. and Ankaralı, M. M. (2018). Body stiffness and damping depend sensitively on the timing of muscle activation in lampreys. Integrative and Comparative Biology 58, 860–873.
+
+From Matlab file: /Users/etytel01/Documents/2018/Whole Body lamprey/ms_plot_work_stiffness.m
+
+```{r}
+lampreybenddata <- tribble(
+  ~species, ~E.Pa, ~E.sd.Pa, ~I.mm4, ~I.sd.mm4, ~EI.Nm2, ~EI.sd.Nm2,
+  'Ichthyomyzon unicuspis', 88e3, 67e3, 3256, 1741, 2.10e-4, 0.82e-4)
+
+lampreydampdata <- tribble(
+  ~eta.Pas, ~eta.sd.Pas, ~etaI.Nm2s, ~etaI.sd.Nm2s,
+  224, 134, 6.1605e-07, 2.93036e-07)
+
+lampreyprepdata <- tribble(
+  ~tissue, ~location.L, ~location.desc, ~location.cat, ~Lseg.mm, ~Lbody.mm, ~freq.radps,
+  'whole body', 0.55, 'midbody', 'mid', 17.6, 260, 2*pi)
+  
+  
+lampreycurvedata <- tribble(
+  ~curve.invm, ~angle.deg, ~angle.sd.deg, ~strain.pct, ~strain.sd.pct, ~N, ~method,
+  4.4, NA, NA, 5.9, 0.8, 6, 'LAOB')
+
+lampreydata <-
+  bind_cols(lampreybenddata, lampreydampdata, lampreyprepdata, lampreycurvedata) |> 
+  mutate(frequency.cat = 'low',
+         curve.cat = 'mid',
+         cite = "Tytell et al. (2018)")
+```
+
+# Marlin intervertebral joints
+
+Long, J. H. (1992). Stiffness and Damping Forces in the Intervertebral Joints of Blue Marlin (Makaira Nigricans). Journal of Experimental Biology.
+
+```{r}
+len.marlin.cm <- mean(c(88.0, 99.4, 116.7, 119.5, 122.8, 108.6))
+```
+
+## Joint 11
+
+Stiffness is 5.89+-2 N m rad-1 at 3.3deg and 7.31+-2.57 N m rad-1 at 5.0deg (Table 1). Joint 11 is 0.8+-0.2cm long (mean +- stdev, Table 2).
+
+John reports values in N m / rad, which is I think $C / \theta_{max}$.
+
+```{r}
+stiff.marlin.Nmprad <- c(5.89, 7.31)
+ang.marlin.deg <- c(3.3, 5.0)
+jointlen.marlin.cm <- 0.8
+
+stiff.marlin.Nmprad.sd <- c(2.00, 2.57)
+jointlen.marlin.cm.sd <- 0.2
+
+stiff.marlin.err <- stiff.marlin.Nmprad.sd / stiff.marlin.Nmprad
+jointlen.marlin.err <- jointlen.marlin.cm.sd / jointlen.marlin.cm
+
+EI.marlin <- stiff.marlin.Nmprad * jointlen.marlin.cm/100
+EI.err.marlin <- sqrt(stiff.marlin.err^2 + jointlen.marlin.err^2)
+EI.sd.marlin <- EI.err.marlin * EI.marlin
+```
+
+The bending modulus ($EI$) for marlin is `r EI.marlin` +- `r EI.sd.marlin` N m^2.
+
+```{r}
+damp.marlin.Nmsprad2 <- c(0.071, 0.082)
+damp.marlin.Nmsprad2.sd <- c(0.022, 0.035)
+
+damp.marlin.err <- damp.marlin.Nmsprad2.sd / damp.marlin.Nmsprad2
+
+etaI.marlin <- damp.marlin.Nmsprad2 * jointlen.marlin.cm/100
+etaI.err.marlin <- sqrt(damp.marlin.err^2 + jointlen.marlin.err^2)
+etaI.sd.marlin <- etaI.err.marlin * etaI.marlin
+```
+
+```{r}
+width.marlin.cm <- 3.3
+height.marlin.cm <- 2.4
+width.marlin.sd.cm <- 0.5
+height.marlin.sd.cm <- 0.4
+
+width.marlin.err <- width.marlin.sd.cm / width.marlin.cm
+height.marlin.err <- height.marlin.sd.cm / height.marlin.cm
+
+I.marlin.m4 <- pi/4 * (width.marlin.cm/100/2)^3 * (height.marlin.cm/100/2)
+I.marlin.err <- sqrt((3*width.marlin.err)^2 + height.marlin.err^2)
+I.marlin.sd.m4 = I.marlin.err * I.marlin.m4
+```
+
+```{r}
+E.marlin <- EI.marlin / I.marlin.m4
+E.marlin.sd <- sqrt(EI.err.marlin^2 + I.marlin.err^2) * E.marlin
+
+eta.marlin <- etaI.marlin / I.marlin.m4
+eta.marlin.sd <- sqrt(etaI.err.marlin^2 + I.marlin.err^2) * eta.marlin
+```
+
+```{r}
+marlindata <- bind_cols(
+  tribble(
+    ~species, ~E.Pa, ~E.sd.Pa, ~I.mm4, ~I.sd.mm4, ~EI.Nm2, ~EI.sd.Nm2,
+    'Makaira nigricans', E.marlin[1], E.marlin.sd[1], 
+    I.marlin.m4 * 1000^4, I.marlin.sd.m4 * 1000^4,
+    EI.marlin[1], EI.sd.marlin[1]
+  ),
+  tribble(
+    ~eta.Pas, ~eta.sd.Pas, ~etaI.Nm2s, ~etaI.sd.Nm2s,
+    eta.marlin[1], eta.marlin.sd[1],
+    etaI.marlin[1], etaI.sd.marlin[1]
+  ),
+  tribble(~stiff.Nmprad, ~damp.Nmsprad2, ~torque.Nm,
+          stiff.marlin.Nmprad[1], damp.marlin.Nmsprad2[1], NA),
+  tribble(
+    ~tissue, ~location.L, ~location.desc, ~location.cat, ~Lseg.mm, ~Lbody.mm, ~freq.radps,
+    'intervertebral joint', NA, 'joint 11', 'mid', jointlen.marlin.cm*10, len.marlin.cm*10, 0),
+  tribble(
+    ~curve.invm, ~angle.deg, ~angle.sd.deg, ~strain.pct, ~strain.sd.pct, ~N, ~method,
+    3.3*pi/180/(jointlen.marlin.cm/100), 3.3, 0, NA, NA, 6, 'dynamic bending'
+  ),
+  tribble(
+    ~frequency.cat, ~curve.cat, ~dE.dloc, ~dE.dfreq, ~dE.dcurve, ~deta.dloc, ~deta.dfreq, ~deta.dcurve, ~cite,
+    '0', 'mid', 'inc', 'dec', 'inc', 'inc', 'dec', 'const', 'Long (1992)'
+  )
+)
+```
+
+```{r}
+marlindata
+```
+
+# Largemouth bass
+
+Whole body. Long, J. H. and Nipper, K. S. (1996). The importance of body stiffness in undulatory propulsion. American Zoologist 36, 678–694.
+
+```{r}
+stiff.bass.Nmprad <- 42.7
+stiff.bass.se.Nmprad <- 0.57
+N.bass <- 10   # number of trials. Only 1 individual
+stiff.bass.sd.Nmprad <- stiff.bass.se.Nmprad * sqrt(N.bass)
+stiff.bass.err <- stiff.bass.sd.Nmprad / stiff.bass.Nmprad
+
+len.bass.cm <- 2.5
+
+EI.bass <- stiff.bass.Nmprad * len.bass.cm/100
+```
+
+Measured from a dead specimen, at about 40% of length.
+```{r}
+len.otherbass.mm <- 144
+width.otherbass.mm <- 21.7
+height.otherbass.mm <- 30.0
+
+I.bass.L4 <- pi/4 * (width.otherbass.mm/len.otherbass.mm / 2)^3 * 
+  (height.otherbass.mm/len.otherbass.mm / 2)
+```
+
+Given the bass's length from the Long and Nipper paper, we can estimate the second moment of area
+```{r}
+len.bass.cm <- 30
+I.bass.mm4 <- I.bass.L4 * (len.bass.cm*10)^4
+```
+
+```{r}
+E.bass <- EI.bass / (I.bass.mm4 * (1/1000)^4)
+
+bendloc.bass.L <- (0.39 + 0.47)/2
+```
+
+```{r}
+bassdata <- bind_cols(
+  tribble(
+    ~species, ~E.Pa, ~E.sd.Pa, ~I.mm4, ~I.sd.mm4, ~EI.Nm2, ~EI.sd.Nm2,
+    'Micropterus salmoides', E.bass, NA, I.bass.mm4, NA, EI.bass, NA
+  ),
+  tribble(
+    ~eta.Pas, ~eta.sd.Pas, ~etaI.Nm2s, ~etaI.sd.Nm2s,
+    NA, NA, NA, NA
+  ),
+  tribble(
+    ~tissue, ~location.L, ~location.desc, ~location.cat, ~Lseg.mm, ~Lbody.mm, ~freq.radps,
+    'whole body', bendloc.bass.L, 'midbody', 'mid', 25, len.bass.cm*10, 2.6*2*pi,
+  ),
+  tribble(~stiff.Nmprad,
+          stiff.bass.Nmprad),
+  tribble(
+    ~curve.invm, ~angle.deg, ~angle.sd.deg, ~strain.pct, ~strain.sd.pct, ~N, ~method,
+    NA, 4.6, NA, NA, NA, 1, 'dynamic bending'
+  ),
+  tribble(
+    ~frequency.cat, ~curve.cat, ~cite,
+    'mid', 'mid', 'Long & Nipper (1996)'
+  )
+)
+```
+
+
+# Hagfish
+
+Long, J. H., Koob-Emunds, M., Sinwell, B. and Koob, T. J. (2002). The notochord of hagfish Myxine glutinosa: visco-elastic properties and mechanical functions during steady swimming. Journal of Experimental Biology 205, 3819–3831.
+
+```{r}
+hagfishbend <-
+  tribble(
+  ~curve.invm, ~EI.Nm2,
+  13.486005089058525, 0.00031577608142493643,
+  11.643765903307889, 0.0002974554707379135,
+  12.59033078880407, 0.0002974554707379135,
+  15.226463104325699, 0.00032900763358778627,
+  )
+
+hagfishbend$freq.radps <- 4*pi
+
+hagfishbend <-
+  hagfishbend |> 
+  arrange(curve.invm) |> 
+  mutate(curve.rnd = round(curve.invm, digits=1))
+
+hagfishbend
+```
+
+```{r}
+hagfishdamp <-
+  tribble(
+    ~curve.invm, ~etaI.Nm2s,
+    11.635443037974685, 0.0000033045356371490277,
+    12.587341772151898, 0.00000359611231101512,
+    13.48860759493671, 0.000004341252699784019,
+    15.220253164556961, 0.000003920086393088553
+  ) |> 
+  mutate(curve.rnd = round(curve.invm, digits = 1))
+
+hagfishdata <-
+  hagfishbend |> 
+  left_join(hagfishdamp, by = 'curve.rnd') |> 
+  select(-starts_with('curve.invm')) |> 
+  rename(curve.invm = curve.rnd)
+```
+
+```{r}
+width.hagfish.mm <- 12
+I.hagfish.mm4 <- 1053
+I.notochord.mm4 <- 62.8
+```
+
+```{r}
+hagfishdata <-
+  hagfishdata |> 
+  mutate(species = 'Myxine glutinosa',
+         I.mm4 = I.hagfish.mm4) |> 
+  mutate(E.Pa = EI.Nm2 / (I.mm4 * (1/1000)^4),
+         tissue = 'whole body',
+         location.L = 0.37,
+         location.desc = 'midbody',
+         location.cat = 'mid',
+         Lseg.mm = 0.011 * 1000,
+         Lbody.mm = 0.379 * 1000,
+         angle.deg = curve.invm * Lseg.mm/1000 * 180/pi,
+         strain.pct = curve.invm * width.hagfish.mm/1000 / 2 * 100,
+         N = 4,
+         method = 'dynamic bending') |> 
+  mutate(frequency.cat = 'mid',
+         curve.cat = c('low','mid','mid','high'))
+hagfishdata
+```
+
+How much does stiffness change with curvature?
+```{r}
+hagfishdata |> 
+  transmute(dE = (E.Pa - E.Pa[1])/E.Pa[1])
+```
+
+```{r}
+hagfishdata <-
+  hagfishdata |> 
+  summarize(across(where(is.numeric), ~mean(.x, na.rm = TRUE)),
+            across(where(is.character), first)) |> 
+  mutate(dE.dcurve = 'const',
+         dE.dfreq = 'inc',
+         deta.dcurve = 'const',
+         deta.dfreq = 'dec',
+         cite = 'Long et al. (2002)')
+```
+
+# Striped bass
+
+Szewciw, L., Zhu, D. and Barthelat, F. (2017). The nonlinear flexural response of a whole teleost fish: Contribution of scales and skin. Journal of the Mechanical Behavior of Biomedical Materials.
+
+Digitized F = 0 curve from Fig. 2.
+```{r}
+striper1curve <-
+  tribble(~x.m, ~y.m,
+          0.009902396030554275, 0.13633295925683472,
+          0.01467813540510543, 0.14683866392343903,
+          0.02150062022589279, 0.1590545995822813,
+          0.028664229287719514, 0.17024439664578078,
+          0.038215708036821824, 0.18092926836871476,
+          0.048449435268002855, 0.18933383210199822,
+          0.06243552915061694, 0.20042590168022698,
+          0.07676274727427039, 0.20930281492565234,
+          0.09040771691584513, 0.2181797281710777,
+          0.10848730169093164, 0.22162733667923984,
+          0.12452014101978191, 0.22697520184544412,
+          0.1419174773127897, 0.22716522751124832,
+          0.15624469543644315, 0.22660057981857296,
+          0.17295978324737216, 0.22583504785061884,
+          0.19001599529934055, 0.22331042114779143,
+          0.20502546190507276, 0.22086723401602298,
+          0.21901155578768683, 0.21246267028273952,
+          0.23436214663445842, 0.20661530908070705,
+          0.2473248677939544, 0.19659824184045643,
+          0.25858196774825354, 0.18952928707253971,
+          0.26676894953319835, 0.1810595716824091
+  )
+```
+
+```{r}
+striper1curve <-
+  striper1curve |> 
+  mutate(d.m = sqrt((x.m - lag(x.m))^2 + (y.m - lag(y.m))^2),
+         d.m = replace_na(d.m, 0),
+         s.m = cumsum(d.m))
+
+striper1curve
+```
+
+```{r}
+Lseg.striper.m <-
+  striper1curve |> 
+  tail(1) |> 
+  pull(s.m)
+
+Lseg.striper.m
+```
+
+```{r}
+striper1data <-
+  tribble(
+    ~curve.invmm, ~torque.Nmm, ~trial,
+    0.0063305509181969975, 2.173913043478251, 1,
+    0.00809348914858097, 81.30434782608677, 1,
+    0.009963272120200338, 379.56521739130426, 1,
+    0.010951585976627716, 793.478260869565, 1,
+    0.007131886477462439, 2.173913043478251, 2,
+    0.007746243739565946, 69.13043478260852, 2,
+    0.00908180300500835, 446.5217391304345, 2,
+    0.010016694490818032, 915.2173913043476, 2,
+    0.007585976627712856, 2.173913043478251, 3,
+    0.008707846410684478, 78.26086956521726, 3,
+    0.010550918196994996, 403.91304347826076, 3,
+    0.0118864774624374, 793.47826086956, 3
+  ) |> 
+  mutate(species = 'striped bass',
+         location.mm = 180,
+         indiv = 1)
+```
+
+```{r}
+striper2data <-
+  tribble(
+    ~curve.invmm, ~torque.Nmm, ~trial,
+    0.006143790849673201, 0.8492569002123673, 1,
+    0.008183006535947711, 84.07643312101914, 1,
+    0.010640522875816991, 428.87473460721867, 1,
+    0.012235294117647056, 815.2866242038216, 1,
+    0.0073986928104575155, 3.8216560509554256, 2,
+    0.008993464052287582, 90.02123142250525, 2,
+    0.011241830065359476, 428.87473460721867, 2,
+    0.012758169934640521, 812.3142250530785, 2,
+    0.0073986928104575155, 3.8216560509554256, 3,
+    0.009803921568627449, 92.99363057324831, 3,
+    0.01184313725490196, 295.11677282377923, 3,
+    0.014326797385620912, 752.8662420382166, 3
+  ) |> 
+  mutate(species = 'striped bass',
+         location.mm = 150,
+         indiv = 2)
+```
+
+```{r}
+striperdata <-
+  bind_rows(striper1data, striper2data)
+
+striperdata
+```
+We want the tangent Young's modulus - the increase in torque due to an increase in curvature.
+
+```{r}
+striperdata <-
+  striperdata |> 
+  group_by(indiv, trial) |> 
+  arrange(indiv, trial, curve.invmm) |> 
+  mutate(torque.Nm = torque.Nmm / 1000,
+         curve.invm = (curve.invmm + lag(curve.invmm))/2 * 1000,
+         EI.Nm2 = (torque.Nm - lag(torque.Nm)) / (curve.invm - lag(curve.invm)),
+         I.mm4 = 4e6,
+         E.Pa = EI.Nm2 / (I.mm4 * (1/1000)^4))
+
+striperdata
+```
+
+
+```{r}
+striperdata <-
+  striperdata |>
+  ungroup() |> 
+  filter(torque.Nmm > 100) |> 
+  summarize(across(c(EI.Nm2, I.mm4, E.Pa, location.mm, curve.invm, torque.Nm), list(mn=mean, sd=sd))) |> 
+  rename_with(~str_remove(.x, '_mn'), cols = contains('_mn')) |> 
+  rename_with(~str_replace(.x, '(\\w+)\\.(\\w+)_sd', '\\1.sd.\\2'), cols = contains('_sd')) |> 
+  mutate(species = 'Morone saxatilis',
+         tissue = 'whole body',
+         Lseg.mm = Lseg.striper.m * 1000,
+         Lbody.mm = 400,
+         location.L = location.mm / Lbody.mm,
+         location.desc = 'M',
+         location.cat = 'mid',
+         freq.radps = NA,
+         frequency.cat = '0',
+         curve.cat = 'high',
+         dE.dcurve = 'inc',
+         cite = 'Szewciw et al. 2017'
+         ) |> 
+  select(-location.mm, -location.sd.mm)
+
+striperdata <-
+  striperdata |> 
+  select(any_of(colnames(marlindata)))
+
+striperdata
+```
+Seems low... Based on Fig. 2, radius of curvature at the highest point is ~0.07m = 14 m^-1, or 70mm = 0.014mm^-1, which is consistent with their x axes in Fig 5.
+
+# Eel
+
+
+Long, J. H. (1998). Muscles, elastic energy, and the dynamics of body stiffness in swimming eels. American Zoologist 38, 771–792.
+
+```{r}
+eelbodydata <-
+  tribble(
+  ~Lbody.mm, ~Lseg.mm, ~curve.invm, ~angle.deg, ~strain.pct, ~bodywidth.mm, ~bodyheight.mm, ~location.L,
+  210, 3.9, 38, 2.125*2, 3.81, 3.8, 8, 0.71,
+  300, 7.5, 19.8, 1.417*3, 3.67, 8.6, 12.9, 0.69,
+  330, 8.1, 18.3, 1.417*3, 3.84, 8.7, 14.9, 0.70,
+  ) |> 
+  mutate(tissue = 'whole body',
+         location.desc = 'mid-caudal',
+         location.cat = 'mid',
+         freq.radps = 3*2*pi,
+         species = 'Anguilla rostrata') |> 
+  mutate(I.mm4 = pi/4 * (bodywidth.mm/2)^3 * (bodyheight.mm/2))
+
+eelbodydata
+```
+
+Data from Fig. 3A
+```{r}
+eelbenddata <-
+  tribble(
+    ~beta.deg, ~EI.Nm2, ~tuple, ~val,
+    0, 0.00016782608695652178, 0, 'mean',
+    0, 0.00019739130434782623, 0, 'use',
+    0.7224770642201861, 0.00013478260869565222, 0, 'lse',
+    45.51605504587155, 0.00017652173913043482, 1, 'mean',
+    44.79357798165137, 0.00020956521739130438, 1, 'use',
+    44.79357798165137, 0.00014521739130434787, 1, 'lse',
+    88.86467889908255, 0.0001695652173913044, 2, 'mean',
+    89.58715596330273, 0.00019739130434782623, 2, 'use',
+    89.58715596330273, 0.00014173913043478265, 2, 'lse',
+    133.65825688073394, 0.00017478260869565232, 3, 'mean',
+    134.38073394495413, 0.00020434782608695656, 3, 'use',
+    134.38073394495413, 0.00014521739130434787, 3, 'lse',
+    179.17431192660544, 0.00018521739130434786, 4, 'mean',
+    179.17431192660544, 0.00021826086956521743, 4, 'use',
+    179.17431192660544, 0.0001539130434782609, 4, 'lse',
+    224.69036697247705, 0.00018521739130434786, 5, 'mean',
+    223.96788990825686, 0.0002130434782608696, 5, 'use',
+    224.69036697247705, 0.0001521739130434784, 5, 'lse',
+    270.2064220183486, 0.00018000000000000004, 6, 'mean',
+    270.2064220183486, 0.000211304347826087, 6, 'use',
+    269.48394495412845, 0.00014695652173913048, 6, 'lse',
+    315, 0.00018695652173913047, 7, 'mean',
+    315, 0.00022173913043478264, 7, 'use',
+    315, 0.0001521739130434784, 7, 'lse',
+  )
+
+eelbenddata <-
+  eelbenddata |> 
+  select(-beta.deg) |> 
+  pivot_wider(names_from = val, values_from = EI.Nm2) |> 
+  rename(EI.Nm2 = mean) |> 
+  mutate(EI.sd.Nm2 = (use - lse)/2 * sqrt(6)) |> 
+  select(-use, -lse) |> 
+  mutate(w = 1/EI.sd.Nm2^2) |> 
+  summarize(EI.mn.Nm2 = sum(w*EI.Nm2) / sum(w),
+            EI.sd.Nm2 = sum(w*EI.sd.Nm2) / sum(w))
+```
+
+Data from Fig. 4A. Units in the y axis are a typo
+
+From Eq. 12:
+$$ c = \frac{M_0 \sin(\omega t)}{\omega \theta_0} $$
+so that the units for $c$ are
+$$ c \sim \frac{[N m]}{[rad/s][rad]} = \left[\frac{N m s}{rad^2} \right] $$
+
+This means that $c_ext$, which is
+$$ c_{ext} = \frac{c}{L_t} $$
+from Eq. 13 has units
+$$ c_{ext} \sim \left[\frac{N s}{rad^2} \right] = \left[ \frac{kg\;m}{s\;rad^2}\right] $$
+and not $\left[ kg\;m\;rad^{-2} s^{-2} \right]$ as written in Fig. 4.
+
+To convert $c$ into $\eta I$, we use
+$$ \eta I_ext = c L_t = c_{ext} L_t^2 $$
+
+```{r}
+eeldampdata <-
+  tribble(
+    ~beta, ~cext, ~tuple, ~val,
+    'Bar0', 0.0855855855855856, 0, 'mean',
+    'Bar0', 0.11081081081081079, 0, 'use',
+    'Bar0', 0.060360360360360354, 0, 'lse',
+    'Bar1', 0.09189189189189195, 1, 'mean',
+    'Bar1', 0.11921921921921919, 1, 'use',
+    'Bar1', 0.06456456456456461, 1, 'lse',
+    'Bar2', 0.10030030030030035, 2, 'mean',
+    'Bar2', 0.12972972972972974, 2, 'use',
+    'Bar2', 0.0687687687687688, 2, 'lse',
+    'Bar3', 0.0792792792792793, 3, 'mean',
+    'Bar3', 0.10030030030030035, 3, 'use',
+    'Bar3', 0.060360360360360354, 3, 'lse',
+    'Bar4', 0.0855855855855856, 4, 'mean',
+    'Bar4', 0.11291291291291294, 4, 'use',
+    'Bar4', 0.05825825825825831, 4, 'lse',
+    'Bar5', 0.062462462462462565, 5, 'mean',
+    'Bar5', 0.0876876876876877, 5, 'use',
+    'Bar5', 0.03933933933933931, 5, 'lse',
+  )
+
+eeldampdata <-
+  eeldampdata |> 
+  select(-beta) |> 
+  pivot_wider(names_from = val, values_from = cext) |> 
+  rename(cext = mean) |> 
+  mutate(cext.sd = (use - lse)/2 * sqrt(6)) |> 
+  select(-use, -lse) |> 
+  mutate(w = 1/cext.sd^2) |> 
+  summarize(cext.mn = sum(w*cext) / sum(w),
+            cext.sd = sum(w*cext.sd) / sum(w))
+
+```
+
+
+```{r}
+eelbodydata <-
+  eelbodydata |> 
+  summarize(across(where(is.numeric), list(mn = mean, sd = sd)),
+            across(where(is.character), first)) |> 
+  rename_with(.cols = contains('_mn') | contains('_sd'),
+              ~str_replace(.x, '(\\w+)\\.(\\w+)_(mn|sd)', '\\1.\\3.\\2')) |> 
+  select(-freq.sd.radps) |> 
+  rename(freq.radps = freq.mn.radps)
+
+eelbodydata
+```
+
+```{r}
+eeldata <-
+  bind_cols(eelbodydata, eelbenddata, eeldampdata) |> 
+  mutate(N = 3,
+         method = 'dynamic bending',
+         I.m4 = I.mn.mm4 * (1/1000)^4,
+         E.Pa = EI.mn.Nm2 / I.m4,
+         E.sd.Pa = EI.sd.Nm2 / I.m4,
+         etaI.mn.Nm2s = cext.mn * (Lseg.mn.mm/1000)^2,
+         etaI.sd.Nm2s = cext.sd * (Lseg.mn.mm/1000)^2,
+         eta.Pas = etaI.mn.Nm2s / I.m4,
+         eta.sd.Pas = etaI.sd.Nm2s / I.m4,
+         ) |> 
+  rename_with(.cols = contains('.mn'),
+              ~str_remove(.x, '\\.mn')) |> 
+  mutate(frequency.cat = 'high',
+         curve.cat = 'high',
+         cite = 'Long (1998)')
+```
+
+```{r}
+eeldata |> 
+  summarize(E.cv.Pa = E.sd.Pa / E.Pa)
+```
+
+```{r}
+eeldata <-
+  eeldata |> 
+  select(any_of(colnames(marlindata)))
+```
+
+# Dogfish vertebral column
+
+Porter, M. E., Ewoldt, R. H. and Long, J. H. (2016). Automatic control: the vertebral column of dogfish sharks behaves as a continuously variable transmission with smoothly shifting functions. Journal of Experimental Biology 219, 2908–2919.
+
+```{r}
+dogfishstiff <- read_csv('stiffness data/Porter2016-Fig3A-EI1.csv')
+```
+
+```{r}
+dogfishdamp <- read_csv('stiffness data/Porter2016-Fig4A-etaI1.csv')
+```
+
+```{r}
+dogfishdata <-
+  bind_rows(
+  dogfishstiff |> 
+  mutate(param = 'EI1.Nm2') |> 
+  rename(value = EI1,
+         curve.invm = curvature,
+         frequency.Hz = frequency),
+  
+  dogfishdamp |> 
+  mutate(param = 'etaI1.Nm2s') |> 
+  rename(value = etaI1,
+         curve.invm = curvature,
+         frequency.Hz = frequency)
+) |> 
+    mutate(curve.cat = case_when(curve.invm < 2  ~  'low',
+                                curve.invm > 4  ~  'high',
+                                TRUE  ~  'mid'))
+```
+
+```{r}
+dogfishcurves <-
+  dogfishdata |> 
+  group_by(curve.cat) |> 
+  summarize(curve.invm = mean(curve.invm))
+  
+dogfishdatashort <-
+  dogfishdata |> 
+  group_by(curve.cat, frequency.Hz, param) |> 
+  summarize(mn = mean(value),
+            sd = sd(value)) |> 
+  left_join(dogfishcurves, by = 'curve.cat') |> 
+  pivot_wider(names_from = param,
+              values_from = c(mn, sd)) |> 
+  rename_with(.cols = contains('sd'), ~str_replace(.x, 'sd_(\\w+).(\\w+)', '\\1.sd.\\2')) |> 
+  rename_with(.cols = contains('mn'), ~str_replace(.x, 'mn_(\\w+).(\\w+)', '\\1.\\2'))
+  
+dogfishdatashort
+```
+```{r}
+dogfishdatashort <-
+  dogfishdatashort |> 
+  mutate(N = 3,
+         species = 'Squalus acanthias',
+         tissue = 'vertebral column',
+         location.desc = 'precaudal',
+         location.cat = 'post',
+         method = 'LAOB',
+         Lseg.mm = mean(62.72, 52.64, 53.12),
+         Lbody.mm = mean(772, 740, 867),
+         rseg.mm = mean(3.55, 2.95, 3.3),
+         I.mm4 = pi/4 * rseg.mm^4,
+         E.Pa = EI1.Nm2 / (I.mm4 * (1/1000)^4),
+         E.sd.Pa = EI1.sd.Nm2 / (I.mm4 * (1/1000)^4),
+         eta.Pas = etaI1.Nm2s / (I.mm4 * (1/1000)^4),
+         eta.sd.Pas = etaI1.sd.Nm2s / (I.mm4 * (1/1000)^4)) |> 
+  mutate(freq.radps = frequency.Hz * 2*pi,
+         strain.pct = curve.invm * (rseg.mm / 1000) * 100) |> 
+  rename(EI.Nm2 = EI1.Nm2,
+         EI.sd.Nm2 = EI1.sd.Nm2,
+         etaI.Nm2 = etaI1.Nm2s,
+         etaI.sd.Nm2 = etaI1.sd.Nm2s) |> 
+  mutate(frequency.cat = case_when(frequency.Hz < 1  ~  'low',
+                                   frequency.Hz >= 2  ~  'mid'))
+
+dogfishdatashort
+```
+```{r}
+dogfishdatashort <-
+  dogfishdatashort |> 
+  filter(curve.cat == 'mid' & frequency.cat == 'mid') |> 
+  mutate(dE.dcurve = 'inc',
+         dE.dfreq = 'inc',
+         deta.dcurve = 'inc',
+         deta.dfreq = 'dec',
+         cite = 'Porter et al. (2016)')
+```
+
+
+```{r}
+dogfishdatashort <-
+  dogfishdatashort |> 
+  ungroup() |> 
+  select(any_of(colnames(marlindata)))
+```
+
+# Kenaley skin measurements
+
+Kenaley, C. P., Sanin, A., Ackerman, J., Yoo, J. and Alberts, A. (2018). Skin stiffness in ray-finned fishes: Contrasting material properties between species and body regions. Journal of Morphology 279, 1419–1430.
+
+```{r}
+skindata <- read_csv('stiffness data/Kenaley2018-Fig4.csv') |> 
+  mutate(E.Pa = E.MPa * 1e6)
+```
+
+Lengths (by personal communication with Chris Kenaley)
+
+coho salmon: 55, 64, 67, 68, 71 cm
+pompano: 26, 29, 29, 30, 32 cm
+red snapper: 26, 26, 27, 27, 28 cm
+
+He lists skin segments as having height and width. Width is along the length of the body and is the same as the testing axis, so we'll use that.
+```{r}
+nskin <-
+  tribble(
+    ~species, ~N, ~Lbody.mm, ~Lseg.mm,
+    'coho', 5, mean(c(55, 64, 67, 68, 71))*10, 50,
+    'pompano', 5, mean(c(26, 29, 29, 30, 32))*10, (20+35)/2,
+    'snapper', 5, mean(c(26, 26, 27, 27, 28))*10, (20+35)/2,
+  )
+
+skindata <-
+  skindata |> 
+  left_join(nskin, by = 'species') |> 
+  mutate(frequency.cat = '0',
+         curve.cat = 'high')
+
+skindata
+```
+Fig 2 shows the approximate locations of the body positions. It looks more or less to scale, so we'll use that to estimate the locations.
+```{r}
+skinloc <- read_csv('stiffness data/Kenaley2018-Fig2.csv')
+```
+
+```{r}
+skinloc <-
+  skinloc |> 
+  group_by(species) |> 
+  summarize(L = x[2] - x[1],
+            anterior = (x[3] - x[1])/L,
+            midlateral = (x[4] - x[1])/L,
+            posterior = (x[5] - x[1])/L) |> 
+  select(-L) |>
+  ungroup() |> 
+  pivot_longer(cols = c(anterior, midlateral, posterior),
+               names_to = 'location.desc',
+               values_to = 'location.L') |> 
+  mutate(location.cat = case_when(location.desc == 'anterior'  ~  'ant',
+                                  location.desc == 'midlateral'  ~  'mid',
+                                  location.desc == 'posterior'  ~  'post'))
+
+skindata <-
+  left_join(skindata, skinloc, by = c('species', 'location.desc'))
+```
+
+```{r}
+skinloc
+```
+
+Kenaley reports that the maximum strain was 20% at a strain rate of 0.3L/s = 30%/sec. If that's a constant stretching rate, it then should take 20/30 sec = 0.66sec. Ignoring the relaxation period (5sec long; Fig 3), that corresponds to a cycle period of 1.333sec or a frequency of 1/1.3333 (Kenaley pers comm).
+```{r}
+skindata <-
+  skindata |> 
+  mutate(tissue = 'skin',
+         freq.radps = 1/1.33333 * 2*pi,
+         method = 'tensile',
+         species = case_when(species == 'coho'  ~  'Oncorhynchus kisutch',
+                             species == 'snapper'  ~  'Lutjanus campechanus',
+                             species == 'pompano'  ~  'Trachinotus carolinus'),
+         frequency.cat = 'low') |> 
+  ungroup() |> 
+  select(any_of(colnames(marlindata)))
+```
+
+```{r}
+skindata <-
+  skindata |> 
+  filter(location.cat == 'mid' & strain.pct == 10) |> 
+  mutate(dE.dloc = 'inc',
+         dE.dcurve = 'inc',
+         cite = 'Kenaley et al. (2018)')
+```
+
+# Gar
+
+Long, J. H., Hale, M. E., McHenry, M. J. and Westneat, M. W. (1996). Functions of fish skin: Flexural stiffness and steady swimming of longnose gar Lepisosteus osseus. Journal of Experimental Biology 199, 2139–2151.
+
+Neutral zone curvature. Fig 4B
+```{r}
+gardata <- tribble(
+  ~curve.neutral.invm, ~curve.neutral.sem.invm, ~EI.Nm2, ~EI.sem.Nm2, ~freq.radps,
+  10.32, 11.055 - 10.325, 0.0649, 0.0827-0.0649, 1*2*pi
+) |> 
+  mutate(N = 3,
+         Lbody.mm = mean(c(640, 640, 710)),
+         curve.invm = curve.neutral.invm + 10,
+         curve.cat = 'mid',
+         EI.sd.Nm2 = EI.sem.Nm2 * sqrt(N))
+```
+
+Fig. 4A:
+```{r}
+garmomvcurve <- tribble(
+  ~curve.invm,  ~moment.Nm,
+  12.6, 0.00123,
+  15.8, 0.00362,
+  18.5, 0.00731,
+  20.8, 0.0111,
+  22.7, 0.0146,
+  24.4, 0.0197,
+  26.1, 0.0235,
+  27.7, 0.0279,
+  28.8, 0.0312,
+  29.4, 0.0332
+)
+```
+
+Long shows bending moment $M$ vs curvature $\kappa$, which increases. But does $EI$ change with curvature?
+$$ EI = \frac{M}{\kappa} $$
+Here, we'll use the slope of the curve, as Long does.
+```{r}
+garmomvcurve |> 
+  mutate(EI.Nm2 = (moment.Nm - lag(moment.Nm)) / (curve.invm - lag(curve.invm))) |> 
+  ggplot(aes(x = curve.invm, y = EI.Nm2)) +
+  geom_point()
+```
+Stiffness increases with increasing curvature.
+
+Shape of another gar, from John Long.
+```{r}
+garshape <- 
+  tribble(~Lbody.mm, ~height.mm, ~width.mm,
+          880, 60, 45) |> 
+  mutate(height.L = height.mm / Lbody.mm,
+         width.L = width.mm / Lbody.mm) |> 
+  select(-Lbody.mm)
+```
+
+
+```{r}
+gardata <-
+  bind_cols(gardata, garshape) |> 
+  mutate(I.mm4 = pi/4 * (width.L/2 * Lbody.mm)^3 * (height.L*Lbody.mm/2),
+         E.Pa = EI.Nm2 / (I.mm4 * (1/1000)^4),
+         E.sd.Nm2 = EI.sd.Nm2 / (I.mm4 * (1/1000)^4)) |> 
+  mutate(species = 'Lepisosteus osseus',
+         tissue = 'whole body',
+         method = 'bending',
+         strain.pct = curve.invm * (width.L/2 * Lbody.mm / 1000),
+         frequency.cat = 'low',
+         location.cat = 'post',
+         cite = 'Long et al. (1996)'
+         ) |> 
+  select(any_of(colnames(marlindata)))
+```
+
+```{r}
+gardata
+```
+
+# Bass intervertebral joints
+
+Nowroozi, B. N. and Brainerd, E. L. (2012). Regional variation in the mechanical properties of the vertebral column during lateral bending in Morone saxatilis. Journal of the Royal Society, Interface / the Royal Society 9, 2667–2679.
+
+Nowroozi, B. N., Harper, C. J., De Kegel, B., Adriaens, D. and Brainerd, E. L. (2012). Regional variation in morphology of vertebral centra and intervertebral joints in striped bass, Morone saxatilis. Journal of Morphology 273, 441–452.
+
+Data from Fig. 4A and 8D. We assume in Fig 8D that we're again looking at example data from individual 01.
+```{r}
+bass2.ivj.morph <- read_csv('stiffness data/Nowroozi 2012 IVJ morphology.csv') |> 
+  mutate(len.ivj.L = len.ivj.mm / Lbody.mm,
+         I.L4 = I.mm4 / (Lbody.mm^4)) |> 
+  select(-contains('mm'))
+
+bass2.ivj.morph
+```
+
+Data from Tables 2 and 3.
+```{r}
+bass2.ivj.mech <- read_csv('stiffness data/Nowroozi 2012 IVJ mechanics.csv')
+```
+
+Lengths from the Nowroozi 2012 mechanics paper.
+```{r}
+bass2.len.cm <- mean(c(31.75, 32.64, 34.29, 36.07, 38.10))
+```
+
+```{r}
+bass2.ivj.mech <-
+  bass2.ivj.mech |> 
+  left_join(bass2.ivj.morph, by = 'vertebra') |> 
+  mutate(Lbody.mm = bass2.len.cm * 10,
+         len.ivj.mm = len.ivj.L * Lbody.mm,
+         I.mm4 = I.L4 * Lbody.mm^4) |> 
+  mutate(EI.Nm2 = stiff.Nmprad * len.ivj.mm/1000,
+         EI.sd.Nm2 = stiff.sd.Nmprad * len.ivj.mm/1000,
+         E.Pa = EI.Nm2 / (I.mm4 * (1/1000)^4),
+         E.sd.Pa = EI.sd.Nm2 / (I.mm4 * (1/1000)^4),
+         ) |> 
+  mutate(species = 'Morone saxatilis',
+         tissue = 'intervertebral joint',
+         method = 'dynamic bending',
+         freq.radps = freq.Hz*2*pi,
+         Lseg.mm = len.ivj.mm,
+         N = 5) |> 
+  mutate(location.cat = case_when(location.desc == 'CV'  ~  'ant',
+                                  location.desc == 'AB'  ~  'mid',
+                                  location.desc == 'CD'  ~  'post'),
+         frequency.cat = case_when(freq.Hz == 2  ~  'low',
+                                   freq.Hz == 5  ~  'mid',
+                                   freq.Hz == 7  ~  'high'),
+         curve.cat = case_when(angle.deg == 10  ~  'mid',
+                               angle.deg == 15  ~  'high'))
+
+bass2.ivj.mech
+```
+
+Nowroozi reports no significant effect of frequency on stiffness. Angular stiffness (Nm/rad) goes up from 10deg bending to 15deg. EI is angular stiffness multiplied by the distance between the clamps (which is constant), so the same effect is true for bending modulus or Young's modulus
+```{r}
+bass2.ivj.mech <-
+  bass2.ivj.mech |> 
+  filter(location.cat == 'mid' & frequency.cat == 'mid' & curve.cat == 'mid') |> 
+  mutate(dE.dloc = 'incdec',
+         dE.dfreq = 'const',
+         dE.dcurve = 'inc',
+         cite = 'Nowroozi & Brainerd (2012)')
+
+bass2.ivj.mech
+```
+
+
+```{r}
+bass2.ivj.mech <-
+  bass2.ivj.mech |> 
+  select(any_of(colnames(marlindata)))
+```
+
+# Crucian carp
+
+Zhou, M., Yin, X. and Tong, B. (2011). An experimental investigation into electromyography, constitutive relationship and morphology of crucian carp for biomechanical “digital fish.” Sci. China Phys. Mech. Astron. 54, 966–977.
+
+```{r}
+carp.bend.data <- read_csv('stiffness data/Zhou 2011 carp.csv') |> 
+  pivot_wider(names_from = param, values_from = k.Nmprad) |> 
+  rename(stiff.Nmprad = mn,
+         stiff.sd.Nmprad = sd) |> 
+  mutate(location.L = location.pct / 100) |> 
+  select(-tuple, -location.pct)
+
+carp.bend.data
+```
+
+They don't include the length between the clamps in the paper. If Fig. 8 is to scale, then the distance between the clamps is defined as below.
+```{r}
+L.carp.pix = 412 - 268
+Lseg.carp.pix = 354 - 331
+Lseg.carp.L = Lseg.carp.pix / L.carp.pix
+
+carp.bend.data <-
+  carp.bend.data |> 
+  mutate(Lseg.L = Lseg.carp.L,
+         Lbody.mm = 190,
+         Lseg.mm = Lseg.L*Lbody.mm,
+         angle.deg = 5.77,
+         freq.Hz = 2) |> 
+  mutate(EI.Nm2 = stiff.Nmprad * Lseg.mm / 1000,
+         EI.sd.Nm2 = stiff.sd.Nmprad * Lseg.mm / 1000,
+         curve.invm = angle.deg * pi/180 / (Lseg.mm/1000))
+
+carp.bend.data
+```
+
+Digitizing width and height from Fig. 16
+```{r}
+L.carp.Fig16.pix <- 680 - 39
+x0.carp.Fig16.pix <- 39
+
+carp.width = tribble(
+  ~x, ~y.left,
+  126.441, 60.169,
+  197.946, 48.833,
+  283.403, 48.833,
+  385.428, 66.273,
+  451.701, 77.609,
+)
+carp.width.right <- tribble(
+  ~x, ~y,
+  122.081, 147.370,
+  204.922, 149.986,
+  291.251, 147.370,
+  388.916, 135.161,
+  456.933, 124.697,
+)
+
+carp.width <-
+  carp.width |> 
+  mutate(x = x - x0.carp.Fig16.pix)
+
+carp.width.right <-
+  carp.width.right |> 
+  mutate(x = x - x0.carp.Fig16.pix)
+
+xyright <- approx(carp.width.right$x, carp.width.right$y, xout = carp.width$x)
+carp.width <-
+  carp.width |> 
+  mutate(y.right = xyright$y,
+         location.L = x / L.carp.Fig16.pix,
+         width.L = (y.right - y.left) / L.carp.Fig16.pix)
+
+xywidth <- with(carp.width,
+                approx(location.L, width.L, c(0.316, 0.476, 0.632))) |> 
+  as_tibble() |> 
+  rename(location.L = x,
+         width.L = y)
+
+carp.width <-
+  carp.width |> 
+  bind_rows(xywidth)
+```
+
+```{r}
+carp.height <- tribble(
+  ~x, ~z.dorsal,
+  0.117, 0.089,
+  0.263, 0.174,
+  0.456, 0.193,
+  0.660, 0.143,
+  0.776, 0.096,
+)
+
+carp.height.ventral <- tribble(
+  ~x, ~z,
+  0.117, -0.079,
+  0.271, -0.144,
+  0.454, -0.157,
+  0.668, -0.140,
+  0.785, -0.092,
+)
+
+xyventral <- with(carp.height.ventral,
+                  approx(x, z, xout = carp.height$x))
+
+carp.height <-
+  carp.height |> 
+  mutate(z.ventral = xyventral$y,
+         height.L = z.dorsal - z.ventral) |> 
+  rename(location.L = x)
+
+xyheight <- with(carp.height,
+                approx(location.L, height.L, c(0.316, 0.476, 0.632))) |> 
+  as_tibble() |> 
+  rename(location.L = x,
+         height.L = y)
+
+carp.height <-
+  carp.height |> 
+  bind_rows(xyheight)
+```
+
+Assume an oval cross section and estimate second moment of area.
+```{r}
+carp.shape <-
+  inner_join(carp.width, carp.height, by = 'location.L') |> 
+  select(contains('.L', ignore.case = FALSE)) |> 
+  mutate(location.desc = c('forebody', 'midbody', 'afterbody')) |> 
+  mutate(I.L4 = pi/4 * (width.L / 2)^3 * (height.L / 2))
+
+carp.shape
+```
+
+```{r}
+carp.bend.data <-
+  carp.bend.data |> 
+  left_join(carp.shape, by = 'location.desc') |> 
+  select(-location.L.y) |> 
+  rename(location.L = location.L.x) |> 
+  group_by(location.desc) |> 
+  mutate(w = 1/stiff.sd.Nmprad^2) |> 
+  summarize(stiff.Nmprad = sum(stiff.Nmprad * w) / sum(w),
+            across(c(location.L, I.L4, Lseg.L, Lbody.mm, Lseg.mm, angle.deg, curve.invm, freq.Hz, width.L),
+                   first)) |> 
+  mutate(EI.Nm2 = stiff.Nmprad * Lseg.mm / 1000,
+         I.mm4 = I.L4 * Lbody.mm^4,
+         E.Pa = EI.Nm2 / (I.mm4 * (1/1000)^4)) |> 
+  ungroup() |> 
+  mutate(species = 'Carassius auratus',
+         tissue = 'whole body',
+         method = 'dynamic bending',
+         freq.radps = freq.Hz * 2*pi
+         ) |> 
+  mutate(curve.cat = 'low',
+         frequency.cat = 'mid',
+         location.cat = case_when(location.desc == 'afterbody'  ~  'post',
+                                  location.desc == 'midbody'  ~  'mid',
+                                  location.desc == 'forebody'  ~  'ant'),
+         cite = 'Zhou et al. (2011)') |> 
+  select(any_of(colnames(marlindata)))
+```
+
+```{r}
+carp.bend.data
+```
+
+Based on Fig. 10. Fig. 10A shows that force changes little with increasing frequency. The moment is the force multiplied by a constant moment arm. Fig. 10B shows that force increases linearly with angle. Torque is force multiplied by a constant, and then the angular stiffness (moment / angle) is thus approximately constant.
+```{r}
+carp.bend.data <- carp.bend.data |> 
+  mutate(dE.dloc = 'dec',
+         dE.dfreq = 'const',
+         dE.dcurve = 'const') |> 
+  filter(location.cat == 'mid')
+```
+
+```{r}
+carp.tensile.data <- tribble(
+  ~tissue, ~Lbody.mm, ~Lbody.sd.mm, ~E.MPa, ~E.sd.MPa, ~Lseg.mm, ~N, ~strain.pct,
+  'muscle', 186.3, 7.2, 1.10, 0.84, 10, 4, 6.2,
+  'skin', 186.3, 7.2, 1.82, 0.68, 10, 4, 14.7,
+) |> 
+  mutate(species = 'Carassius auratus',
+         method = 'tensile')
+```
+
+
+```{r}
+carp.tensile.data <-
+  carp.tensile.data |> 
+  mutate(width.L = max(carp.shape$width.L),
+         curve.invm = strain.pct/100 / (width.L/2*Lbody.mm/1000),
+         E.Pa = E.MPa * 1e6,
+         E.sd.Pa = E.sd.MPa * 1e6) |> 
+  mutate(frequency.cat = '0',
+         curve.cat = 'mid',
+         location.cat = 'mid',
+         cite = 'Zhou et al. (2011)') |> 
+  select(any_of(colnames(marlindata)))
+
+```
+
+
+# Fish acellular rib bone
+
+Horton, J. M. and Summers, A. P. (2009). The material properties of acellular bone in a teleost fish. Journal of Experimental Biology 212, 1413–1420.
+
+```{r}
+ribdata <- read_csv('stiffness data/Horton2009-bone.csv')
+```
+
+```{r}
+ribdata <-
+  ribdata |> 
+  mutate(species = 'Myoxocephalus polyacanthocephalus',
+         tissue = 'bone (acellular rib)',
+         method = '3-point bending',
+         freq.radps = 0,
+         location.desc = str_c('rib ', rib),
+         N = 6,
+         Lbody.mm = mean(c(285, 375)),
+         Lseg.mm = 10,
+         frequency.cat = '0',
+         curve.cat = 'high',
+         location.cat = 'mid') |> 
+  mutate(E.Pa = E.GPa * 1e9,
+         #EI.Nm2 = E.Pa * I.mm4 * (1/1000)^4,
+         EI.Nm2 = EI * 1e-3)
+
+ribdata
+```
+
+It's not clear what Horton means by EI. They don't give units. It looks like it's probably in N m^2 * 1e-3
+```{r}
+ribdata |> 
+  ggplot(aes(EI * 1e-3, EI.Nm2)) +
+  geom_point()
+```
+
+```{r}
+ribdata <-
+  ribdata |> 
+  summarize(across(where(is.numeric), ~mean(.x, na.rm = TRUE)),
+            across(where(is.character), first)) |> 
+  mutate(cite = 'Horton & Summers (2009)') |> 
+  select(any_of(colnames(marlindata)))
+```
+
+```{r}
+ribdata <-
+  ribdata |> 
+  mutate(dE.dloc = 'const')
+```
+
+# Eel skin
+
+Hebrank, M. R. (1980). Mechanical properties and locomotor functions of eel skin. The Biological Bulletin 158, 58–68.
+
+Lengths are given as a range from 41 to 64cm, so we take the midpoint.
+```{r}
+# columns
+# species, E.Pa, E.sd.Pa, I.mm4, I.sd.mm4, EI.Nm2, EI.sd.Nm2, eta.Pas, eta.sd.Pas, etaI.Nm2s, etaI.sd.Nm2s,
+# tissue, location.L, location.desc, location.cat, Lseg.mm, Lbody.mm, freq.radps, curve.invm, angle.deg,
+# angle.sd.deg, strain.pct, strain.sd.pct, N, method, frequency.cat, curve.cat, cite
+
+eelskindata <- tibble(
+  species = 'Anguilla rostrata',
+  tissue = 'skin',
+  E.Pa = c(3.54e6, 1.47e7),
+  E.sd.Pa = c(2.52e6, 1.28e7),
+  Lseg.mm = -30,
+  Lbody.mm = mean(c(410, 640)),
+  location.desc = c('midbody (long)', 'midbody (hoop)'),
+  location.cat = c('mid', 'mid'),
+  strain.pct = -c(40, 20),
+  method = 'tensile',
+  N = 10,
+  cite = 'Hebrank (1980)'
+)
+
+eelskindata
+```
+
+```{r}
+danoseelskindata <- tibble(
+  species = 'Anguilla rostrata',
+  tissue = 'skin',
+  E.Pa = c(7.68e6, 12.10e6, 6.20e6, 9.45e6),
+  indiv = c(1, 1, 2, 2),
+  Lbody.mm = c(340, 340, 450, 450),
+  Lseg.mm = 10,
+  strain.rate.Lps = c(0.25, 1.8, 0.25, 1.8),
+  N = 2,
+  method = 'tensile',
+  location.L = c(0.167, 0.167, 0.176, 0.176),
+  cite = 'Danos (2005)'
+)
+```
+
+```{r}
+danoseelskindata <-
+  danoseelskindata |> 
+  group_by(strain.rate.Lps) |> 
+  summarize(across(c(E.Pa, Lbody.mm), mean),
+            across(c(species, tissue, Lseg.mm, N, method, location.L, cite), first))
+
+danoseelskindata
+```
+
+```{r}
+danoseelskindata <-
+  danoseelskindata |> 
+  filter(strain.rate.Lps == 0.25)
+```
+
+# Hebrank and Hebrank 1986
+
+Norfolk spot and skipjack tuna
+
+Hebrank, M. R. and Hebrank, J. H. (1986). The mechanics of fish skin: Lack of an “external tendon” role in two teleosts. The Biological Bulletin 171, 236–247.
+
+Lengths are given as ranges. 16 to 21cm for spots and 44 to 50cm for skipjacks.
+```{r}
+spotskindata <- tibble(
+  species = 'Leiostomus xanthurus',
+  tissue = 'skin',
+  E.Pa = c(2.41e6, 1.64e7),
+  E.sd.Pa = c(2.26e6, 0.63e7),
+  Lbody.mm = mean(c(160, 210)),
+  Lseg.mm = -30,
+  location.desc = c('midbody (long)', 'midbody (hoop)'),
+  location.cat = c('mid', 'mid'),
+  strain.pct = -c(12, 4),
+  method = 'tensile',
+  N = 5,
+  cite = 'Hebrank & Hebrank (1986)'
+)
+
+skipjackskindata <- tibble(
+  species = 'Katsuwonus pelamis',
+  tissue = 'skin',
+  E.Pa = c(6.92e6, 6.02e7),
+  E.sd.Pa = c(4.25e6, 5.44e7),
+  Lbody.mm = mean(c(440, 500)),
+  Lseg.mm = -30,
+  location.desc = c('midbody (long)', 'midbody (hoop)'),
+  location.cat = c('mid', 'mid'),
+  strain.pct = -c(14, 4),
+  method = 'tensile',
+  N = 4,
+  cite = 'Hebrank & Hebrank (1986)'
+)
+
+HHskindata <-
+  bind_rows(spotskindata, skipjackskindata)
+
+```
+
+# Clark et al 2016
+
+Clark, A. J., Crawford, C. H., King, B. D., Demas, A. M. and Uyeno, T. A. (2016). Material Properties of Hagfish Skin, with Insights into Knotting Behaviors. Biological Bulletin 230, 243–256.
+
+```{r}
+# columns
+# species, E.Pa, E.sd.Pa, I.mm4, I.sd.mm4, EI.Nm2, EI.sd.Nm2, eta.Pas, eta.sd.Pas, etaI.Nm2s, etaI.sd.Nm2s,
+# tissue, location.L, location.desc, location.cat, Lseg.mm, Lbody.mm, freq.radps, curve.invm, angle.deg,
+# angle.sd.deg, strain.pct, strain.sd.pct, N, method, frequency.cat, curve.cat, cite
+
+hagfishskin <- tibble(
+  E.Pa = c(38.5e6, 52.6e6, 24.0e6, 31.3e6),
+  E.sem.Pa = c(5.82e6, 8.36e6, 3.48e6, 5.18e6),
+  loc = c('H', 'T', 'H', 'T'),
+  dir = c('long','long', 'circ','circ'),
+  N = 5,
+  common.name = 'Hagfish',
+)
+
+gunnelskin <- tibble(
+  E.Pa = c(13.3e6, 28.2e6, 41.8e6, 49.5e6),
+  E.sem.Pa = c(1.3e6, 8.85e6, 2.67e6, 4.85e6),
+  loc = c('H', 'T', 'H', 'T'),
+  dir = c('long','long', 'circ','circ'),
+  N = 4,
+  common.name = 'Gunnel',
+)
+
+lampreyskin <- tibble(
+  E.Pa = c(22.8e6, 21.1e6),
+  E.sem.Pa = c(9.37e6, 2.82e6),
+  loc = c('H', 'T'),
+  dir = c('long','long'),
+  N = 5,
+  common.name = 'Lamprey',
+)
+
+clarkdata <-
+  bind_rows(hagfishskin, gunnelskin, lampreyskin)
+```
+
+
+```{r}
+clarkdata <-
+  clarkdata |> 
+  mutate(E.sd.Pa = E.sem.Pa * sqrt(N)) |> 
+  mutate(species = case_when(common.name == 'Hagfish'  ~  'Eptatretus stoutii',
+                             common.name == 'Gunnel'  ~  'Apodichthys flavidus',
+                             common.name == 'Lamprey'  ~  'Petromyzon marinus'),
+         location.desc = case_when(loc == 'H'  ~  'ant',
+                                   loc == 'T'  ~  'post'),
+         location.L = case_when(loc == 'H'  ~  25,
+                                loc == 'T'  ~  75),
+         location.cat = case_when(loc == 'H'  ~  'ant',
+                                loc == 'T'  ~  'mid'),
+         location.desc = str_c(location.desc, ' (', dir, ')'),
+         Lseg.mm = 17,
+         tissue = 'skin',
+         method = 'tensile',
+         cite = 'Clark et al. (2016)')
+```
+
+```{r}
+clarkdata <-
+  clarkdata |> 
+  filter(location.cat == 'mid' & str_detect(location.desc, 'long'))
+```
+
+
+# Striped bass skin
+
+Szewciw, L. and Barthelat, F. (2017). Mechanical properties of striped bass fish skin: Evidence of an exotendon function of the stratum compactum. Journal of the Mechanical Behavior of Biomedical Materials 73, 28–37.
+
+```{r}
+striperskindata <- tibble(
+  Lseg.mm = 50,
+  E.Pa = c(152, 441, 532, 129, 112, 245),
+  strain.stiff.frac = c(0.17, 0.11, 0.09, 0.09, 0.15, 0.12),
+  strain.frac = -c(0.2, 0.22, 0.12, 0.2, 0.22, 0.12),
+  location.desc = c('AD', 'MD', 'PD', 'AV', 'MV', 'PV'),
+  point = c('A', 'M', 'P', 'A', 'M', 'P'),
+  N = 3,
+  location.cat = if_else(point == 'M', 'mid', NA_character_),
+  method = 'tensile',
+  cite = 'Szewciw (2017)'
+)
+```
+
+Locations from Fig 4A
+```{r}
+striperloc <- tribble(
+  ~point, ~x, ~y,
+  'snout', 15, 133,
+  'tail', 493, 102,
+  'A', 189, 109,
+  'M', 254, 110,
+  'P', 316, 109,
+)
+
+striperlen1 <- with(striperloc, x[2] - x[1])
+striperloc <-
+  striperloc |> 
+  mutate(location.L = (x - x[1]) / striperlen1)
+
+striperskindata <-
+  striperskindata |> 
+  left_join(striperloc, by = 'point') |> 
+  select(-c(point, x,y)) |> 
+  mutate(strain.pct = strain.frac * 100)
+
+```
+
+```{r}
+striperskindata <-
+  striperskindata |> 
+  filter(location.cat == 'mid' & str_detect(location.desc, 'D')) |> 
+  mutate(tissue = 'skin',
+         species = 'Morone saxatilis')
+```
+
+
+# Fin rays: Aiello et al 2018
+
+Aiello, B. R., Hardy, A. R., Cherian, C., Olsen, A. M., Ahn, S. E., Hale, M. E. and Westneat, M. W. (2018). The relationship between pectoral fin ray stiffness and swimming behavior in Labridae: insights into design, performance and ecology. The Journal of experimental biology 221, jeb163360.
+
+```{r}
+aiellofinraydata <- read_csv('stiffness data/Aiello2018_Table1.csv')
+```
+```{r}
+aiellofinraydata <-
+  aiellofinraydata |> 
+  filter(Indiv %in% c('Mean', 's.d.')) |> 
+  mutate(Indiv = case_when(Indiv == 'Mean'  ~  'mn',
+                           Indiv == 's.d.'  ~  'sd')) |> 
+  pivot_wider(names_from = Indiv,
+              values_from = c(Proximal:TE.Distal)) |> 
+  pivot_longer(!Species, names_to = c('location.desc', '.value'),
+               names_pattern = '(.+)_(mn|sd)') |> 
+  mutate(EI.Nm2 = mn * 1e-6,
+         EI.sd.Nm2 = sd * 1e-6) |> 
+  select(-mn, -sd)
+```
+
+```{r}
+# columns
+# species, E.Pa, E.sd.Pa, I.mm4, I.sd.mm4, EI.Nm2, EI.sd.Nm2, eta.Pas, eta.sd.Pas, etaI.Nm2s, etaI.sd.Nm2s,
+# tissue, location.L, location.desc, location.cat, Lseg.mm, Lbody.mm, freq.radps, curve.invm, angle.deg,
+# angle.sd.deg, strain.pct, strain.sd.pct, N, method, frequency.cat, curve.cat, cite
+
+Gomphosusfinrays <- tibble(
+  species = 'Gomphosus varius',
+  N = 7,
+  m.g = 22.44,
+
+)
+
+Halichoeresfinrays <- tibble(
+  species = 'Halichoeres bivittatus',
+  N = 8,
+  m.g = 22.03,
+)
+
+aiellofinraydata <-
+  aiellofinraydata |> 
+  rename(species = Species) |> 
+  left_join(bind_rows(Gomphosusfinrays, Halichoeresfinrays), by = c('species')) |> 
+  mutate(method = '3-point bending',
+         tissue = 'fin (pectoral)',
+         curve.invmm = -0.35,
+         cite = 'Aiello et al. (2018)')
+```
+
+```{r}
+aiellofinraydata <-
+  aiellofinraydata |> 
+  filter(location.desc == 'M1.Middle') |> 
+  mutate(location.desc = 'pectoral')
+```
+
+# Bluegill pectoral fin rays
+
+Alben, S., Madden, P. G. A. and Lauder, G. V. (2007). The mechanics of active fin-shape control in ray-finned fishes. Journal of The Royal Society Interface 4, 243–256.
+
+Not clear if we can derive a bulk EI from their results.
+
+# Yellow perch fin rays
+
+Taft, N. K., Taft, B. N., Henck, H. and Mehner, T. (2018). Variation in flexural stiffness of the lepidotrichia within and among the soft fins of yellow perch under different preservation techniques. J Morphol 279, 1045–1057.
+
+```{r}
+perchfinrays <- read_csv('stiffness data/Taft2018Fig6.csv')
+```
+
+No values for I reported, though they do discuss that they estimated it.
+
+```{r}
+perchfinrays <-
+  perchfinrays |> 
+  mutate(Lseg.mm = RayLength.mm,
+         EI.Nm2 = EI.Nmm2 * (1/1000)^2,
+         location.desc = str_c(Fin, ' fin'),
+         tissue = str_c('fin (', Fin, ')')) |> 
+  group_by(tissue, location.desc) |> 
+  summarize(across(c(Lseg.mm, EI.Nm2), ~ mean(.x, na.rm = TRUE))) |> 
+  mutate(species = 'Perca flavescens',
+         method = '3-point bending',
+         N = 11,
+         Lbody.mm = 183,
+         cite = 'Taft et al. (2018)')
+```
+
+```{r}
+perchfinrays
+```
+
+
+# Zebrafish caudal fin 
+
+Puri, S., Aegerter-Wilmsen, T., Jaźwińska, A. and Aegerter, C. M. (2017). In-vivo quantification of mechanical properties of caudal fins in adult zebrafish. The Journal of Experimental Biology jeb.171777.
+
+```{r}
+zebrafishfinEI <- read_csv('stiffness data/Puri2018Fig2C.csv')
+zebrafishfinI <- read_csv('stiffness data/Puri2018FigS5B.csv')
+zebrafishfinE <- read_csv('stiffness data/Puri2018FigS5C.csv')
+```
+
+```{r}
+zebrafishfinEI <-
+  zebrafishfinEI |> 
+  group_by(fish) |> 
+  summarize(beamlen.mm = beamlen.mm[which.max(EI.Nm2)],
+            EI.Nm2 = max(EI.Nm2))
+```
+
+```{r}
+Ivals <- with(zebrafishfinI, approx(beamlen.mm, I.m4, xout = zebrafishfinEI$beamlen.mm))
+              
+zebrafishfinI |> 
+  ggplot(aes(x = beamlen.mm, y = I.m4)) +
+  geom_point() +
+  geom_line() +
+  geom_point(data = as.tibble(Ivals), aes(x = x, y = y), color = 'red')
+```
+
+```{r}
+zebrafishfinE <-
+  zebrafishfinE |> 
+  left_join(zebrafishfinEI, by = 'fish') |> 
+  rename(beamlen.mm = beamlen.mm.x,
+         beamlen.mm.max = beamlen.mm.y) |> 
+  select(-EI.Nm2) |> 
+  group_by(fish) |> 
+  summarize(E.max.MPa = approx(x = beamlen.mm, y = E.MPa, xout = beamlen.mm.max[1])$y)
+```
+
+```{r}
+zebrafishfin <-
+  as_tibble(Ivals) |> 
+  rename(beamlen.mm = x,
+         I.m4 = y) |> 
+  right_join(zebrafishfinEI, by = c('beamlen.mm')) |> 
+  right_join(zebrafishfinE, by = 'fish')
+
+zebrafishfin
+```
+
+```{r}
+# columns
+# species, E.Pa, E.sd.Pa, I.mm4, I.sd.mm4, EI.Nm2, EI.sd.Nm2, eta.Pas, eta.sd.Pas, etaI.Nm2s, etaI.sd.Nm2s,
+# tissue, location.L, location.desc, location.cat, Lseg.mm, Lbody.mm, freq.radps, curve.invm, angle.deg,
+# angle.sd.deg, strain.pct, strain.sd.pct, N, method, frequency.cat, curve.cat, cite
+
+zebrafishfin <-
+  zebrafishfin |> 
+  ungroup() |> 
+  summarize(across(c(beamlen.mm, I.m4, EI.Nm2, E.max.MPa), c(mn = mean, sd = sd)),
+            N = n()) |> 
+  rename(Lseg.mm = beamlen.mm_mn,
+         Lseg.sd.mm = beamlen.mm_sd,
+         I.m4 = I.m4_mn,
+         I.sd.m4 = I.m4_sd,
+         EI.Nm2 = EI.Nm2_mn,
+         EI.sd.Nm2 = EI.Nm2_sd) |> 
+  mutate(E.Pa = E.max.MPa_mn * 1e6,
+         E.sd.Pa = E.max.MPa_sd * 1e6) |> 
+  select(-c(E.max.MPa_mn, E.max.MPa_sd)) |> 
+  mutate(species = 'Danio rerio',
+         method = 'static bending',
+         tissue = 'fin',
+         location.desc = 'caudal',
+         cite = 'Puri et al. (2018)')
+```
+
+```{r}
+zebrafishfin
+```
+
+
+# Compile results
+
+
+```{r}
+alldata <- bind_rows(hagfishdata, lampreydata, eeldata, bassdata, striperdata, marlindata, 
+          dogfishdatashort, skindata, gardata, bass2.ivj.mech, carp.tensile.data, carp.bend.data,
+          ribdata, eelskindata, danoseelskindata, HHskindata, clarkdata, striperskindata,
+          zebrafishfin, aiellofinraydata, perchfinrays)
+```
+
+```{r}
+tab <-
+  alldata |> 
+  mutate(EI.NL2 = EI.Nm2 / (Lbody.mm/1000)^2,
+         I.L4 = I.mm4 / (Lbody.mm/1000)^4) |> 
+  relocate(species, tissue, E.Pa, eta.Pas) |> 
+  group_by(species, tissue, frequency.cat, location.cat, curve.cat) |> 
+  summarize(across(where(is.numeric), mean),
+            across(where(is.character), first)) |> 
+  mutate(freq.Hz = freq.radps / (2*pi),
+         location.L = if_else(location.L > 1, location.L / 100, location.L)) |> 
+  mutate(tissue = case_when(str_detect(tissue, 'fin')  ~  'fin',
+                            str_detect(tissue, 'vert')  ~  'vertebral column',
+                            TRUE  ~  tissue),
+         tissue = factor(tissue),
+         tissue = fct_relevel(tissue, 'whole body')) |> 
+  arrange(tissue, species)
+
+tab
+```
+
+```{r}
+build_measurements <- function(df) {
+  meas = tibble(measurement = rep(NA_character_, nrow(df)),
+                value = rep(NA_real_, nrow(df)),
+                units = rep(NA_character_, nrow(df)))
+  for (i in seq(1, nrow(df))) {
+    if (!is.na(df$torque.Nm[i])) {
+      meas$measurement[i] = '\tau ='
+      meas$value[i] = df$torque.Nm[i]
+      meas$units[i] = 'N m'
+    } else if (!is.na(df$stiff.Nmprad[i])) {
+      meas$measurement[i] = 'k ='
+      meas$value[i] = df$stiff.Nmprad[i]
+      meas$units[i] = 'N m rad^{-1}'
+    } else if (!is.na(df$EI.Nm2[i])) {
+      meas$measurement[i] = 'EI ='
+      meas$value[i] = df$EI.Nm2[i]
+      meas$units[i] = 'N m^2'
+    }
+  }
+  bind_cols(df, meas)
+}
+```
+
+```{r}
+citenum <-
+  tab |> 
+  group_by(tissue, species, cite) |> 
+  summarize(cite = first(cite)) |> 
+  ungroup() |> 
+  arrange(tissue, species) |> 
+  distinct(cite) |> 
+  mutate(citenum = seq(1, n()))
+```
+
+```{r}
+suffix_formatter <- function(x, n_sigfig = 2,
+                             breaks = c(1e-9, 1e-6, 1e-3, 1, 1000, 1e6, 1e9),
+                             labels = c('n', 'u', 'm', '', 'k', 'M', 'G'),
+                             div = c(1e-9, 1e-6, 1e-3, 1, 1000, 1e6, 1e9)) {
+  
+  print(x)
+  fmt = rep_along(x, '')
+  for (j in seq_along(x)) {
+    if (is.na(x[j])) {
+      val <- NA
+      suf <- ''
+    }
+    else if (x[j] < breaks[1]) {
+      val <- x[j] / div[1]
+      suf <- labels[1]
+    } else {
+      for (i in seq(length(breaks), 1, by=-1)) {
+        if (x[j] >= breaks[i]) {
+          val <- x[j] / div[i]
+          suf <- labels[i]
+          break
+        }
+      }
+    }
+    
+    fmt[j] <- paste0(signif(val, digits = n_sigfig), suf)
+  }
+  
+  fmt
+}
+```
+
+```{r}
+displaytab <-
+  tab |> 
+  ungroup() |> 
+  left_join(citenum, by = "cite") |> 
+  mutate(location.pct = location.L * 100) |> 
+  mutate(location.desc = str_remove(location.desc, ' fin')) |> 
+  build_measurements() |> 
+  ungroup() |> 
+  mutate(across(contains('dE.'),
+                ~case_when(.x == 'inc'  ~  '+',
+                           .x == 'dec'  ~  '-',
+                           .x == 'const'  ~  '=',
+                           .x == 'incdec'  ~  '+-'))) |>
+  select(tissue, species, location.desc, location.L, E.Pa, EI.NL2, contains('dE.'), eta.Pas, 
+         #curve.invm, strain.pct, angle.deg, 
+         I.L4, 
+         #measurement, value, units, 
+         Lbody.mm, N, method, citenum) |>
+  arrange(tissue, species) |>
+  group_by(tissue) |>
+  gt() |>
+  sub_missing(missing_text = '')  |>
+  fmt(columns = c(E.Pa, eta.Pas, EI.NL2),
+      fns = \(num) suffix_formatter(num, n_sigfig = 2)) |> 
+  fmt_scientific(columns = c(I.L4)) |>
+  # fmt_scientific(columns = c(value)) |>
+  fmt_percent(columns = c(location.L), decimals = 0) |>
+  # fmt_percent(columns = c(strain.pct), decimals = 1, scale_values = FALSE) |>
+  # fmt_number(c(curve.invm, angle.deg), decimals = 1) |>
+  fmt_number(Lbody.mm, decimals = 0) |>
+  cols_label(tissue = 'Tissue',
+             species = 'Species',
+             location.desc = '',
+             location.L = '',
+             E.Pa = md('E (Pa)'),
+             EI.NL2 = md('EI (N L2)'),
+             dE.dcurve = 'curvature +',
+             dE.dfreq = 'frequency +',
+             dE.dloc = 'location post',
+             eta.Pas = md('eta (Pa s)'),
+             # curve.invm = 'Curvature (m^-1)',
+             # strain.pct = 'Strain',
+             # angle.deg = 'Angle (o)',
+             I.L4 = 'I (L^4)',
+             # measurement = '',
+             # value = '',
+             # units = '',
+             Lbody.mm = 'Body length (mm)',
+             method = 'Method',
+             citenum = '')
+  # tab_spanner('Change in E when',
+  #             columns = contains('dE.')) |>
+  # tab_spanner('Original measurement',
+  #             columns = c(measurement, value, units))
+
+displaytab
+```
+
+```{r}
+gtsave(displaytab, 'mechtable2.docx')
+```
+
+```{r}
+note <-
+  citenum |> 
+  mutate(note = str_c(citenum, cite, sep = ' '))
+
+do.call(paste, c(sep = '; ', as.list(note$note)))
+```
+
