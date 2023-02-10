@@ -1,5 +1,8 @@
 ---
-title: "R Notebook"
+title: "Build Figure 3 and S1"
+subtitle: "Flexibility is a hidden axis of biomechanical diversity in fishes. J. Exp. Biol."
+author: "Eric D. Tytell, Yordano Jimenez, Kelsey Lucas, John Long"
+date: "February 10, 2023"
 output:
   pdf_document: default
   html_notebook: default
@@ -14,7 +17,7 @@ library(patchwork)
 ```
 
 ```{r}
-lucasdata <- read_csv('stiffness data/Lucas 2014 flexion ratio.csv')
+lucasdata <- read_csv(here('stiffness data/Lucas 2014 flexion ratio.csv'))
 ```
 
 ```{r}
@@ -55,7 +58,7 @@ lucasdatamn |>
 ```
 
 ```{r}
-aleyevdata <- read_csv('stiffness data/Aleyev stiffness.csv')
+aleyevdata <- read_csv(here('stiffness data/Aleyev stiffness.csv'))
 ```
 
 ```{r}
@@ -74,7 +77,8 @@ He also gave us
 $$ G_n = \frac{k_n}{l_n} $$
 is the ratio of the two axes. 
 
-From this, we can figure out the two dimensions and the second moment of area. The area $q_n = \tfrac{\pi}{4} k_n l_n$. Then
+From this, we can figure out the two dimensions and the second moment of area. The area 
+$q_n = \tfrac{\pi}{4} k_n l_n$. Then
 $$ G_n Q_n^2 = \left( \frac{k_n}{l_n} \right) \left( \frac{q_n^{1/2}}{L} \right)^2 = \frac{k_n}{l_n} \frac{\pi}{4} \frac{k_n l_n}{L^2} = \frac{\pi}{4L^2} k_n^2$$
 or
 $$ k_n = \frac{2 L}{\pi^{1/2}} G_n^{1/2} Q_n $$
@@ -118,7 +122,8 @@ The value $E_n$ is essentially a curvature, but we cannot solve directly for the
 $$ 2 \theta = \Delta s \kappa_n $$
 where $\Delta s$ is half the arc length, or $0.1 L$. Then
 $$ d_n = 2 r \sin \theta = \frac{2}{\kappa_n} \sin(\Delta s \kappa_n) $$
-We cannot solve this analytically for $\kappa_n$, but we can solve it numerically. The equation is undefined when $\kappa_n = 0$ (i.e., when the body is straight), but we know that in this case $d_n = 2 \Delta s $.
+We cannot solve this analytically for $\kappa_n$, but we can solve it numerically. The equation is undefined when $\kappa_n = 0$ (i.e., when the body is straight), but we know that in this case 
+$d_n = 2 \Delta s$.
 
 ## Function to calculate $E_n$ from $kappa_n$
 ```{r}

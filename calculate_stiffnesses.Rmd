@@ -1,5 +1,8 @@
 ---
-title: "R Notebook"
+title: "Build Table 1"
+subtitle: "Flexibility is a hidden axis of biomechanical diversity in fishes. J. Exp. Biol."
+author: "Eric D. Tytell, Yordano Jimenez, Kelsey Lucas, John Long"
+date: "February 10, 2023"
 output:
   pdf_document: default
   html_notebook: default
@@ -22,8 +25,6 @@ Graphs digitized with [https://automeris.io/WebPlotDigitizer/]
 # Lamprey
 
 Tytell, E. D., Carr, J. A., Danos, N., Wagenbach, C., Sullivan, C. M., Kiemel, T., Cowan, N. J. and Ankaralı, M. M. (2018). Body stiffness and damping depend sensitively on the timing of muscle activation in lampreys. Integrative and Comparative Biology 58, 860–873.
-
-From Matlab file: /Users/etytel01/Documents/2018/Whole Body lamprey/ms_plot_work_stiffness.m
 
 ```{r}
 lampreybenddata <- tribble(
@@ -62,7 +63,7 @@ len.marlin.cm <- mean(c(88.0, 99.4, 116.7, 119.5, 122.8, 108.6))
 
 Stiffness is 5.89+-2 N m rad-1 at 3.3deg and 7.31+-2.57 N m rad-1 at 5.0deg (Table 1). Joint 11 is 0.8+-0.2cm long (mean +- stdev, Table 2).
 
-John reports values in N m / rad, which is I think $C / \theta_{max}$.
+John reports values in N m / rad, which is $C / \theta_{max}$.
 
 ```{r}
 stiff.marlin.Nmprad <- c(5.89, 7.31)
