@@ -1,0 +1,716 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r setup}
+library(tidyverse)
+library(ape)
+library(ggtree)
+library(here)
+library(patchwork)
+```
+
+```{r}
+lucasdata <- read_csv('stiffness data/Lucas 2014 flexion ratio.csv')
+```
+
+```{r}
+lucasdata <-
+  lucasdata |> 
+  rename(organism = Organism,
+         species = `Species Name`,
+         group = Group,
+         indiv = Individual,
+         rep = Measurement,
+         inflection.point = `Inflection Point`,
+         length = Length) |> 
+  fill(organism, species, indiv) |> 
+  select(organism:length) |> 
+  mutate(flexion.ratio = inflection.point / length) 
+```
+
+```{r}
+lucasdata <-
+  lucasdata |> 
+  group_by(organism) |> 
+  fill(group)
+```
+
+```{r}
+lucasdatamn <-
+  lucasdata |> 
+  group_by(group, organism) |> 
+  summarize(across(c(length, flexion.ratio), list(mn = mean, sd = sd), .names = '{.col}.{.fn}'), .groups = 'drop') 
+```
+
+
+```{r}
+lucasdatamn |> 
+  filter(group %in% c('Fish', 'Marine mammal')) |> 
+  ggplot(aes(x = organism, y = flexion.ratio.mn, color = group)) +
+  geom_pointrange(aes(ymin = flexion.ratio.mn - flexion.ratio.sd, ymax = flexion.ratio.mn + flexion.ratio.sd))
+```
+
+```{r}
+aleyevdata <- read_csv('stiffness data/Aleyev stiffness.csv')
+```
+
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  rename(Vtotal = V) |> 
+  pivot_longer(c(E1:E5, Q1:Q5, G1:G5, V1:V5), names_to = c('.value', 'point'), names_pattern = "(.)(.)") |> 
+  filter(str_detect(Group, 'fish'))
+```
+
+Aleyev reported
+$$ Q_n = \frac{q_n^{1/2}}{L} $$
+where $q_n$ is the cross-sectional area of segment $n$ and $L$ is the body length (to end of vertebral column). The two diameters of the cross-section are $k_n$ perpendicular to the bending axis (the fish's width) and $l_n$ parallel to the bending axis.
+
+He also gave us
+$$ G_n = \frac{k_n}{l_n} $$
+is the ratio of the two axes. 
+
+From this, we can figure out the two dimensions and the second moment of area. The area $q_n = \tfrac{\pi}{4} k_n l_n$. Then
+$$ G_n Q_n^2 = \left( \frac{k_n}{l_n} \right) \left( \frac{q_n^{1/2}}{L} \right)^2 = \frac{k_n}{l_n} \frac{\pi}{4} \frac{k_n l_n}{L^2} = \frac{\pi}{4L^2} k_n^2$$
+or
+$$ k_n = \frac{2 L}{\pi^{1/2}} G_n^{1/2} Q_n $$
+and
+$$ l_n = \frac{4}{\pi} \frac{L^2 Q_n^2}{k_n} = \frac{2}{\pi^{1/2}} \frac{L Q_n}{G_n^{1/2}} $$
+which means that the second moment of area is
+$$ I_n = \frac{\pi}{4} k_n^3 l_n = \frac{2}{\pi} L^4 G_n Q_n^4 $$
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  mutate(I.L4 = 2/pi * G * Q^4)
+```
+
+
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  mutate(point = as.numeric(point),
+         loc = 0.2 * point)
+```
+
+
+```{r}
+aleyevdata |> 
+  filter(str_detect(Group, 'fish')) |> 
+  #filter(`Common name` %in% c('Sprat', 'European eel')) |> 
+  ggplot(aes(x = loc, y = I.L4, color = Species)) +
+  geom_line(show.legend = FALSE) +
+  scale_y_log10() +
+  facet_wrap(~ Species) #, scales='free')
+```
+
+# Aleyev's E
+
+Aleyev bent fish through an arc of 45 - 90 deg, then measured the chord length (the straight line distance) of the arc formed along the body for 5 equally spaced sections from head to the end of the vertebral column. The chord length is $d_n$ and it should always be shorter than the arc length $0.2 L$, where $L$ is the standard length of the body.
+
+Aleyev reported an index of flexibility $E_n$, which he defined as
+$$ E_n = \frac{0.2 L - d_n}{\sum_{i=1}^5 (0.2L - d_i)} $$
+
+The value $E_n$ is essentially a curvature, but we cannot solve directly for the curvature $\kappa_n$. Given an arc with chord length $d_n$ and arc length $0.2 L$, we can solve for $d_n$ as a function of $\kappa_n$. The total angle of the arc ($2 \theta$) is
+$$ 2 \theta = \Delta s \kappa_n $$
+where $\Delta s$ is half the arc length, or $0.1 L$. Then
+$$ d_n = 2 r \sin \theta = \frac{2}{\kappa_n} \sin(\Delta s \kappa_n) $$
+We cannot solve this analytically for $\kappa_n$, but we can solve it numerically. The equation is undefined when $\kappa_n = 0$ (i.e., when the body is straight), but we know that in this case $d_n = 2 \Delta s $.
+
+## Function to calculate $E_n$ from $kappa_n$
+```{r}
+E_from_curve <- function(curve, ds2 = 0.1) {
+  d <- if_else(curve == 0, 
+               2*ds2,
+               2 / curve * sin(ds2 * curve))
+  D <- sum(2*ds2 - d)
+  
+  (2*ds2 - d) / D
+}
+
+# minimize this function to find the curvature that matches a particular set of E values
+minimize_for_kappa <- function(curve, E, ds2 = 0.1) {
+  E_from_curve(curve) - E
+}
+```
+
+## Solve for curvature
+```{r}
+# starting guess for curvature: linearly increasing along the body, with a magnitude slightly larger than 1
+curve0 <- c(1, 2, 3, 4, 5)
+
+aleyevcurve <- 
+  aleyevdata |> 
+  filter(str_detect(Group, 'fish')) |> 
+  group_by(Species) |> 
+  select(Species, loc, E) |> 
+  nest(data = c(loc, E)) |> 
+  mutate(nlfit = map(data, ~ nleqslv::nleqslv(curve0, minimize_for_kappa, jac=NULL, .x$E,
+                 control = list(trace=0))),
+         curve = map(nlfit, ~ .$x),
+         termcd = map(nlfit, ~ .$termcd)) |> 
+  select(-nlfit) |> 
+  unnest(c(data, curve, termcd))
+
+```
+
+Sometimes the default algorithm doesn't converge. These are the species for which we had problems.
+```{r}
+aleyevcurve |> 
+  filter(termcd != 1) |> 
+  distinct(Species)
+```
+Run the solver again, starting with a different starting guess for the curvature. We also use a Newton's method solver and a small maximum step, so that curvature doesn't diverge.
+```{r}
+curve0 <- c(0.01, 0.02, 0.5, 1, 2)
+
+aleyevcurve2 <- 
+  aleyevcurve |> 
+  group_by(Species) |> 
+  filter(termcd != 1) |> 
+  select(Species, loc, E) |> 
+  nest(data = c(loc, E)) |>
+  mutate(nlfit = map(data, ~ nleqslv::nleqslv(curve0, minimize_for_kappa, jac=NULL, .x$E,
+                 method = 'Newton', global = 'cline',
+                 control = list(trace=0, stepmax = 0.1, maxit = 200))),
+         curve = map(nlfit, ~ .$x),
+         termcd = map(nlfit, ~ .$termcd)) |>
+  select(-nlfit) |>
+  unnest(c(data, curve, termcd))
+```
+
+Look for non-convergence
+```{r}
+aleyevcurve2 |>
+  filter(termcd != 1) |>
+  distinct(Species, .keep_all = TRUE)
+```
+That seems to have solved the problem.
+
+Update the estimated curvature values with the converged solutions
+```{r}
+aleyevcurve <-
+  aleyevcurve |> 
+  left_join(aleyevcurve2, by = c("Species", "loc", "E")) |> 
+  mutate(curve = coalesce(curve.y, curve.x),
+         termcd = coalesce(termcd.y, termcd.x)) |> 
+  select(-contains('.x'), -contains('.y'))
+```
+
+And merge it in to the main data set.
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  left_join(aleyevcurve, by = c("Species", "loc", "E"))
+```
+
+```{r}
+aleyevdata |> 
+  filter(loc > 0.2) |> 
+  ggplot(aes(x = loc, y = curve, color = Species)) +
+  geom_line(show.legend = FALSE) +
+  # scale_y_log10() + 
+  facet_wrap(~ Species, scales='free')
+```
+
+## Estimate $EI$
+
+Now we have an estimate of curvature. The bending moment $M$ is
+$$ M = EI \kappa $$
+
+If we assume that Aleyev used the same weight for each segment, then the bending moment is constant, and $EI$ is proportional to $\kappa ^ {-1}$.
+
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  mutate(EIprop = 1/curve)
+```
+
+Hide the very first point, because it tends to be dramatically stiffer than the others, so it obscures the patterns.
+```{r}
+aleyevdata |> 
+  filter(loc > 0.2) |> 
+  ggplot(aes(x = loc, y = EIprop, color = Species)) +
+  geom_line(show.legend = FALSE) +
+  # scale_y_log10() + 
+  facet_wrap(~ Species, scales='free')
+  
+```
+
+We have a good estimate of $I$, so we can also estimate a relative Young's modulus.
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  mutate(Young = EIprop / I.L4)
+```
+
+```{r}
+aleyevdata |> 
+  # filter(loc > 0.2) |> 
+  group_by(Species) |> 
+  mutate(Youngtail = if_else(point == 5, Young, NA_real_)) |> 
+  fill(Youngtail, .direction = 'up') |> 
+  mutate(Young = Young / Youngtail) |>
+  ggplot(aes(x = loc, y = Young, color = Species)) +
+  geom_line(show.legend = FALSE) +
+  scale_y_log10() +
+  facet_wrap(~ Species)#, scales='free')
+
+```
+
+# Phylogeny
+
+This is the tree from the Fish Tree of Life: https://fishtreeoflife.org/
+```{r}
+tree <- read.tree(here('actinopt_12k_treePL.tre.xz'))
+```
+
+
+Get the names of species from the tree.
+```{r}
+allspecies <- tibble(tree$tip.label)
+colnames(allspecies) <- c('Species')
+head(allspecies)
+```
+
+Set up the tip number (just the row)
+```{r}
+allspecies$Tip <- seq_len(nrow(allspecies))
+```
+
+
+Check to make sure all species match with something in the phylogeny
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  filter(Group == 'Bony fish') |> 
+  mutate(Species.match = coalesce(Species.match, Species.corrected, Species),
+    Species.match = str_replace_all(Species.match, ' ', '_')) |> 
+  left_join(allspecies, by = c("Species.match" = "Species"))
+
+aleyevdata |> 
+  filter(is.na(Tip)) |> 
+  distinct(Species.match)
+```
+
+
+```{r}
+ourspecies <-
+  aleyevdata |> 
+  distinct(Species, .keep_all=TRUE)
+```
+
+
+Prune the tree so that we have just our species
+```{r}
+verttree <- keep.tip(tree, tip=as.vector(ourspecies$Tip))
+```
+
+And load in other taxonomic group names
+```{r}
+tax <- read_csv(here('PFC_taxonomy.csv.xz')) |> 
+  separate(genus.species, sep = ' ', into=c('genus2', 'species'),
+           extra = 'drop', remove = FALSE) |> 
+  mutate(across(everything(), ~replace_na(.x, '-')),
+         alltaxon = str_c(superclass, class, subclass, infraclass, 
+                          megacohort, supercohort, cohort, subcohort, infracohort,
+                          section, subsection, division, subdivision, series, superorder,
+                          sep = '-'),
+         alltaxon = str_replace_all(alltaxon, '-+', '-')) |> 
+  select(alltaxon, order, family, genus, species) |>
+  rename(Order = order,
+         Family = family,
+         Genus = genus,
+         Species = species) |>
+  mutate(Species.match = str_c(Genus, Species, sep = '_')) |> 
+  distinct(Genus, Species, .keep_all = TRUE)
+
+head(tax)
+```
+
+```{r}
+tax |> 
+  transmute(perc = str_extract(alltaxon, '-Perc\\w+-')) |> 
+  filter(!is.na(perc)) |> 
+  distinct(perc)
+```
+
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  select(-Order, -Family) |> 
+  left_join(tax |> 
+              select(-Genus, -Species),
+            by = "Species.match")
+```
+
+Normalize $EI$ by the value at the tail
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  mutate(EItail = if_else(point == 5, EIprop, NA_real_),
+         Youngtail = if_else(point == 5, Young, NA_real_)) |> 
+  fill(Youngtail, EItail, .direction = 'up') |> 
+  mutate(Young2 = Young / Youngtail,
+         EI2 = EIprop / EItail)
+```
+
+Get the order of species in the tree
+```{r}
+d <- fortify(verttree)
+dd <- subset(d, isTip)
+speciesorder <- dd$label[order(dd$y, decreasing = TRUE)]
+```
+
+```{r}
+speciesorder
+```
+
+```{r}
+ggtree(verttree) +
+  geom_tiplab()
+```
+```{r}
+aleyevdata |> 
+  mutate(Species.match = factor(Species.match, levels = speciesorder)) |> 
+  ggplot(aes(x = loc, y = I.L4, color = Species)) +
+  geom_line(show.legend = FALSE) +
+  scale_y_log10() +
+  facet_wrap(~ Species.match) #, scales='free')
+```
+
+```{r}
+aleyevdata |> 
+  mutate(Species.match = factor(Species.match, levels = speciesorder)) |> 
+  ggplot(aes(x = loc, y = EI2, color = Species)) +
+  geom_line(show.legend = FALSE) +
+  scale_y_log10() +
+  facet_wrap(~ Species.match) #, scales='free')
+```
+
+Choose which species to show, trying to highlight different patterns
+```{r}
+showspecies <- tibble(Species =
+  c('Tetrapturus_belone',
+    'Xiphias_gladius',
+    'Trachurus_mediterraneus',
+    'Sphyraena_barracuda',
+    'Gambusia_affinis',
+    'Poecilia_reticulata',
+    'Belone_belone',
+    # 'Auxis_thazard_thazard',
+    #'Sarda_sarda',
+    'Scomber_scombrus',
+    'Trichiurus_lepturus',
+    'Pomatomus_saltatrix',
+    'Spicara_smaris',
+    'Chaetodon_striatus',
+    'Ammodytes_hexapterus',
+    'Merlangius_merlangus',
+    'Sprattus_sprattus',
+    # 'Alosa_caspia_caspia',
+    'Abramis_brama',
+    'Anguilla_anguilla',
+    'Acipenser_gueldenstaedtii'))
+
+showspecies$Species.num = seq(1, nrow(showspecies))
+```
+
+```{r}
+aleyevdata <-
+  aleyevdata |> 
+  left_join(showspecies, by = c("Species.match" = "Species"))
+```
+
+```{r}
+shortspecies <- tibble(verttree$tip.label)
+colnames(shortspecies) <- c('Species')
+shortspecies$Tip = seq(1, nrow(shortspecies))
+
+```
+
+```{r}
+shortspecies |> 
+  filter(Species %in% pull(showspecies, Species))
+```
+
+```{r}
+verttreeshort <- keep.tip(verttree, shortspecies |> filter(Species %in% showspecies$Species) |> pull(Tip))
+```
+
+```{r}
+orders <-
+  as_tibble(verttreeshort) |> 
+  left_join(aleyevdata |> 
+              distinct(Species, .keep_all = TRUE), 
+            by = c("label" = "Species.match")) |> 
+  group_by(Order) |> 
+  dplyr::summarize(id = min(parent),
+                   n = n()) |> 
+  filter(n >= 2 & !str_detect(Order, 'Incertae') & !is.na(Order)) |> 
+  rename(taxon = Order)
+orders
+```
+
+```{r}
+nodestolabel <- c('Actinopterygii',
+                  # 'Neopterygii',
+                  'Teleostei',
+                  'Otomorpha',
+                  # 'Euteleostomorpha',
+                  'Neoteleostei',
+                  # 'Acanthomorphata',
+                  'Percomorphaceae',
+                  'Eupercaria')
+
+allnodes <-
+  left_join(as_tibble(verttreeshort), 
+            aleyevdata |> 
+              distinct(Species, .keep_all = TRUE), 
+            by = c("label" = "Species.match")) |> 
+  mutate(Species = label,
+         label = str_replace(label, '_', ' '),
+         alltaxon = replace_na(alltaxon, '-')) |> 
+  select(parent, node, alltaxon)
+
+labelnodes <- tibble()
+for (n in nodestolabel) {
+  print(n[[1]])
+  labelnodes <-
+    allnodes |>
+    dplyr::filter(str_detect(alltaxon, n[[1]])) |> 
+    dplyr::summarize(taxon = n[[1]],
+                     # alltaxon = alltaxon[1],
+                     id = min(parent),
+                     n = n()) |> 
+    bind_rows(labelnodes)
+}
+labelnodes <-
+  bind_rows(orders, labelnodes)
+```
+
+```{r}
+phylodata <-
+  as_tibble(verttreeshort) |> 
+  # left_join(labelnodes, by = c('node' = 'pmin')) |> 
+  # select(-nmin) |> 
+  left_join(aleyevdata |>
+            arrange(Species, loc) |> 
+            group_by(Species.match, Species.num, Species) |> 
+            mutate(Young = if_else(point == 1, NA_real_, Young),
+                   EI3 = if_else(point == 1, NA_real_, EI2)) |> 
+            summarize(Etail = last(E),
+                      EIrng = max(EI3, na.rm = TRUE) - min(EI3, na.rm = TRUE)),
+          by = c("label" = "Species.match")) |> 
+  rename(label2 = label,
+         label = Species.num) |> 
+  mutate(label3 = if_else(is.na(label), label2, NA_character_))
+```
+
+
+```{r}
+phylo_plot <-
+  phylodata |> 
+  left_join(labelnodes, by = c('node' = 'id')) |> 
+  tidytree::as.treedata() |> 
+  ggtree() + #branch.length = 'none') +
+  geom_text(aes(label = taxon)) +
+  geom_tiplab(geom = 'label', aes(fill = EIrng)) +
+  scale_fill_continuous(type = 'viridis', trans = 'log', limits = c(0.05, 10),
+                        breaks = c(0.1, 0.5, 1, 5, 10))
+  
+
+phylo_plot
+```
+
+```{r}
+stiff_plot <-
+  aleyevdata |>
+  filter(Species.match %in% showspecies$Species) |> 
+  mutate(Species.match = factor(Species.match, levels = speciesorder),
+         species.num = as.integer(Species.match)) |> 
+  mutate(Young2 = if_else(Young2 > 100, 100, Young2)) |> 
+  ggplot(aes(x = (loc-0.1)*100, y = Young2, group = Species)) +
+  geom_line() +
+  geom_point(aes(color = Young2)) +
+  geom_label(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species.num),
+            x = 10, y = -2.5, hjust = 0, vjust = 0, size = 3) +
+  geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species),
+            x = 10, y = 2.1, hjust = 0, vjust = 1, size = 2) +
+  # geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=`Common name`),
+  #           x = 10, y = 4, hjust = 0, vjust = 1, size = 3) +
+  scale_y_log10(breaks = c(0.01, 1, 1e2), labels = c('0.01', '1', '>100')) +
+  scale_x_continuous(breaks = c(25, 50, 75)) +
+  scale_color_viridis_c(trans = 'log', limits = c(0.002, 10), direction = -1,
+                        breaks = c(0.01, 0.1, 1, 10), na.value = 'black', option = 'plasma') +
+  facet_wrap(~ Species.match, ncol = 6) +
+  labs(y = 'Stiffness relative to cadual segment', x = 'Body location (%)') +
+  theme_light() +
+  theme(strip.background = element_blank(),
+        panel.grid.minor = element_blank())
+
+stiff_plot
+```
+
+```{r}
+EI_plot <-
+  aleyevdata |>
+  filter(Species.match %in% showspecies$Species) |> 
+  mutate(Species.match = factor(Species.match, levels = speciesorder),
+         species.num = as.integer(Species.match)) |> 
+  mutate(EI2cap = if_else(EI2 > 10, 11, EI2)) |> 
+  ggplot(aes(x = point, y = EI2cap, group = Species)) +
+  geom_line() +
+  geom_point(aes(color = EI2cap)) +
+  geom_label(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species.num),
+            x = 1, y = -1, hjust = 0, vjust = 0, size = 3) +
+  geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species),
+            x = 1, y = 1.1, hjust = 0, vjust = 1, size = 2) +
+  # geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=`Common name`),
+  #           x = 10, y = 4, hjust = 0, vjust = 1, size = 3) +
+  scale_y_log10(breaks = c(0.1, 1, 10), limits = c(0.1, 11)) + #(breaks = c(0.01, 1, 1e2), labels = c('0.01', '1', '>100')) +
+  # scale_x_continuous(breaks = c(25, 50, 75)) +
+  scale_color_viridis_c(trans = 'log', limits = c(0.5, 10), direction = -1,
+                        breaks = c(0.5, 1, 3, 10), na.value = 'gray', option = 'plasma') +
+  facet_wrap(~ Species.match, ncol = 6) +
+  labs(y = 'Relative bending modulus EI', x = 'Body region') +
+  theme_light() +
+  theme(strip.background = element_blank(),
+        panel.grid.minor = element_blank())
+
+EI_plot
+```
+
+```{r}
+I_plot <-
+  aleyevdata |>
+  filter(Species.match %in% showspecies$Species) |> 
+  mutate(Species.match = factor(Species.match, levels = speciesorder)) |> 
+  # mutate(I.L4.cap = case_when(I.L4 > 1e-3  ~  1e-3,
+  #                             I.L4 < 1e-7  ~  1e-7,
+  #                             TRUE  ~  I.L4),
+  #        I.outofrange = if_else(between(I.L4, 1e-7, 1e-3), 'in', 'out')) |> 
+  ggplot(aes(x = point, y = I.L4, group = Species)) +
+  geom_line(color = 'blue', linetype = 2) +
+  geom_point(shape = 4, color = 'blue') +
+  scale_y_log10(breaks = c(1e-7, 1e-5, 1e-3)) + #, limits = c(1e-7, 1e-3), labels = c('10^-7', '10^-5', '10^-3')) +
+  # geom_label(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species.num),
+  #           x = 10, y = -8, hjust = 0, vjust = 0, size = 3) +
+  # geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species),
+  #           x = 0.1, y = -3, hjust = 0, vjust = 1, size = 3) +
+  # geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=`Common name`),
+  #           x = 0.1, y = -4, hjust = 0, vjust = 1, size = 3) +
+  # scale_x_continuous(breaks = c(25, 50, 75)) +
+  facet_wrap(~ Species.match, ncol = 6) +
+  scale_shape_manual(values = c(4, 1)) +
+  labs(y = 'Second moment of area I (L^4)', x = 'Body region') +
+  theme_light() +
+  theme(strip.background = element_blank(),
+        panel.grid.minor = element_blank())
+
+I_plot
+```
+
+```{r}
+ggsave('aleyev_phylogeny.pdf', phylo_plot, width = 2, height = 4, units = 'in')
+```
+
+```{r}
+ggsave('aleyev_stiffness.pdf', EI_plot, width = 4.5, height = 4, units = 'in')
+ggsave('aleyev_I.pdf', I_plot, width = 4.5, height = 4, units = 'in')
+
+```
+
+# Simplified plot
+
+```{r}
+simplespecies <- c("Belone_belone",
+                   "Scomber_scombrus",
+                   "Sphyraena_barracuda")
+```
+
+```{r}
+EI_plot_simple <-
+  aleyevdata |>
+  filter(Species.match %in% simplespecies) |> 
+  mutate(EI2cap = if_else(EI2 > 10, 11, EI2)) |> 
+  ggplot(aes(x = point, y = EI2cap, group = Species)) +
+  geom_line() +
+  geom_point() +
+  geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species),
+            x = 1, y = 1.1, hjust = 0, vjust = 1, size = 2) +
+  scale_y_log10(breaks = c(1, 3, 10), labels = c('1', '3', '>10')) +
+    
+  scale_color_viridis_c(trans = 'log', limits = c(0.5, 10), direction = -1,
+                        breaks = c(0.5, 1, 3, 10), na.value = 'gray', option = 'plasma') +
+  facet_wrap(~ Species.match, ncol = 6) +
+  labs(y = 'Relative bending modulus EI', x = '') +
+  theme_light() +
+  theme(strip.background = element_blank(),
+        panel.grid.minor = element_blank())
+
+EI_plot_simple
+```
+
+```{r}
+stiff_plot_simple <-
+  aleyevdata |>
+  filter(Species.match %in% simplespecies) |> 
+  mutate(Young2 = if_else(Young2 > 100, 100, Young2)) |> 
+  ggplot(aes(x = (loc-0.1)*100, y = Young2, group = Species)) +
+  geom_line(color = "darkgreen", linetype = 3) +
+  geom_point(shape = 15, color = "darkgreen") +
+  scale_y_log10(breaks = c(0.01, 0.1, 1, 10, 1e2), labels = c('0.01', '0.1', '1', '10', '>100')) +
+  scale_x_continuous(breaks = c(25, 50, 75)) +
+  facet_wrap(~ Species.match, ncol = 6) +
+  labs(y = 'Stiffness relative to cadual segment', x = '') +
+  theme_light() +
+  theme(strip.background = element_blank(),
+        panel.grid.minor = element_blank())
+
+stiff_plot_simple
+```
+
+```{r}
+I_plot_simple <-
+  aleyevdata |>
+  filter(Species.match %in% simplespecies) |> 
+  #mutate(Species.match = factor(Species.match, levels = speciesorder)) |> 
+  # mutate(I.L4.cap = case_when(I.L4 > 1e-3  ~  1e-3,
+  #                             I.L4 < 1e-7  ~  1e-7,
+  #                             TRUE  ~  I.L4),
+  #        I.outofrange = if_else(between(I.L4, 1e-7, 1e-3), 'in', 'out')) |> 
+  ggplot(aes(x = point, y = I.L4, group = Species)) +
+  geom_line(color = 'blue', linetype = 2) +
+  geom_point(shape = 4, color = 'blue') +
+  scale_y_log10(breaks = c(1e-8, 1e-7, 1e-6, 1e-5, 1e-4), 
+                labels = c('10^-8', '10^-7', '10^-6', '10^-5', '10^-4')) +
+  # geom_label(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species.num),
+  #           x = 10, y = -8, hjust = 0, vjust = 0, size = 3) +
+  # geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=Species),
+  #           x = 0.1, y = -3, hjust = 0, vjust = 1, size = 3) +
+  # geom_text(data = ~ distinct(., Species.match, .keep_all = TRUE), aes(label=`Common name`),
+  #           x = 0.1, y = -4, hjust = 0, vjust = 1, size = 3) +
+  # scale_x_continuous(breaks = c(25, 50, 75)) +
+  facet_wrap(~ Species.match, ncol = length(simplespecies)) +
+  scale_shape_manual(values = c(4, 1)) +
+  labs(y = 'Second moment of area I (L^4)', x = 'Body region') +
+  theme_light() +
+  theme(strip.background = element_blank(),
+        panel.grid.minor = element_blank())
+
+I_plot_simple
+```
+
+```{r}
+EI_plot_simple + stiff_plot_simple + I_plot_simple + 
+  plot_layout(nrow = 3, heights = c(1,3,3))
+```
+
+```{r}
+ggsave('aleyev_mech_simple.pdf', width = 5.5, height = 6, units = 'in')
+```
+
