@@ -160,9 +160,9 @@ N.bass <- 10   # number of trials. Only 1 individual
 stiff.bass.sd.Nmprad <- stiff.bass.se.Nmprad * sqrt(N.bass)
 stiff.bass.err <- stiff.bass.sd.Nmprad / stiff.bass.Nmprad
 
-len.bass.cm <- 2.5
+len.seg.bass.cm <- 2.5
 
-EI.bass <- stiff.bass.Nmprad * len.bass.cm/100
+EI.bass <- stiff.bass.Nmprad * len.seg.bass.cm/100
 ```
 
 Measured from a dead specimen, at about 40% of length.
@@ -212,6 +212,10 @@ bassdata <- bind_cols(
     'mid', 'mid', 'Long & Nipper (1996)'
   )
 )
+```
+
+```{r}
+bassdata
 ```
 
 
@@ -430,6 +434,7 @@ striperdata <-
   rename_with(~str_replace(.x, '(\\w+)\\.(\\w+)_sd', '\\1.sd.\\2'), cols = contains('_sd')) |> 
   mutate(species = 'Morone saxatilis',
          tissue = 'whole body',
+         N = 3,
          Lseg.mm = Lseg.striper.m * 1000,
          Lbody.mm = 400,
          location.L = location.mm / Lbody.mm,
@@ -1386,7 +1391,7 @@ Szewciw, L. and Barthelat, F. (2017). Mechanical properties of striped bass fish
 ```{r}
 striperskindata <- tibble(
   Lseg.mm = 50,
-  E.Pa = c(152, 441, 532, 129, 112, 245),
+  E.MPa = c(152, 441, 532, 129, 112, 245),
   strain.stiff.frac = c(0.17, 0.11, 0.09, 0.09, 0.15, 0.12),
   strain.frac = -c(0.2, 0.22, 0.12, 0.2, 0.22, 0.12),
   location.desc = c('AD', 'MD', 'PD', 'AV', 'MV', 'PV'),
@@ -1418,7 +1423,8 @@ striperskindata <-
   striperskindata |> 
   left_join(striperloc, by = 'point') |> 
   select(-c(point, x,y)) |> 
-  mutate(strain.pct = strain.frac * 100)
+  mutate(strain.pct = strain.frac * 100,
+         E.Pa = E.MPa * 1e6)
 
 ```
 
@@ -1463,13 +1469,14 @@ Gomphosusfinrays <- tibble(
   species = 'Gomphosus varius',
   N = 7,
   m.g = 22.44,
-
+  Lbody.mm = 106.2
 )
 
 Halichoeresfinrays <- tibble(
   species = 'Halichoeres bivittatus',
   N = 8,
   m.g = 22.03,
+  Lbody.mm = 90.25
 )
 
 aiellofinraydata <-
@@ -1487,6 +1494,10 @@ aiellofinraydata <-
   aiellofinraydata |> 
   filter(location.desc == 'M1.Middle') |> 
   mutate(location.desc = 'pectoral')
+```
+
+```{r}
+aiellofinraydata
 ```
 
 # Bluegill pectoral fin rays
@@ -1639,6 +1650,14 @@ tab <-
 tab
 ```
 
+Get rid of the fin and bone measurements. They don't work with the new normalization by body length.
+```{r}
+tab <-
+  tab |> 
+  filter(!str_detect(tissue, "fin"),
+           !str_detect(tissue, "bone"))
+```
+
 ```{r}
 build_measurements <- function(df) {
   meas = tibble(measurement = rep(NA_character_, nrow(df)),
@@ -1707,6 +1726,7 @@ suffix_formatter <- function(x, n_sigfig = 2,
 }
 ```
 
+
 ```{r}
 displaytab <-
   tab |> 
@@ -1714,25 +1734,29 @@ displaytab <-
   left_join(citenum, by = "cite") |> 
   mutate(location.pct = location.L * 100) |> 
   mutate(location.desc = str_remove(location.desc, ' fin')) |> 
-  build_measurements() |> 
+  # build_measurements() |> 
   ungroup() |> 
   mutate(across(contains('dE.'),
                 ~case_when(.x == 'inc'  ~  '+',
                            .x == 'dec'  ~  '-',
                            .x == 'const'  ~  '=',
                            .x == 'incdec'  ~  '+-'))) |>
-  select(tissue, species, location.desc, location.L, E.Pa, EI.NL2, contains('dE.'), eta.Pas, 
-         #curve.invm, strain.pct, angle.deg, 
-         I.L4, 
-         #measurement, value, units, 
-         Lbody.mm, N, method, citenum) |>
+  mutate(E.MPa = E.Pa / 1e6,
+         eta.kPas = eta.Pas / 1e3) |>
+  mutate(species = str_c(species, citenum)) |>
+  select(tissue, species, location.desc, location.L, E.MPa, EI.NL2, contains('dE.'), eta.kPas,
+         #curve.invm, strain.pct, angle.deg,
+         I.L4,
+         #measurement, value, units,
+         Lbody.mm, N, method) |>
   arrange(tissue, species) |>
   group_by(tissue) |>
   gt() |>
   sub_missing(missing_text = '')  |>
-  fmt(columns = c(E.Pa, eta.Pas, EI.NL2),
-      fns = \(num) suffix_formatter(num, n_sigfig = 2)) |> 
-  fmt_scientific(columns = c(I.L4)) |>
+  fmt_number(columns = c(E.MPa, eta.kPas), n_sigfig = 2) |>
+  # fmt(columns = c(E.Pa, eta.Pas, EI.NL2),
+  #     fns = \(num) suffix_formatter(num, n_sigfig = 2)) |>
+  fmt_scientific(columns = c(I.L4, EI.NL2)) |>
   # fmt_scientific(columns = c(value)) |>
   fmt_percent(columns = c(location.L), decimals = 0) |>
   # fmt_percent(columns = c(strain.pct), decimals = 1, scale_values = FALSE) |>
@@ -1742,12 +1766,12 @@ displaytab <-
              species = 'Species',
              location.desc = '',
              location.L = '',
-             E.Pa = md('E (Pa)'),
+             E.MPa = md('E (MPa)'),
              EI.NL2 = md('EI (N L2)'),
              dE.dcurve = 'curvature +',
              dE.dfreq = 'frequency +',
              dE.dloc = 'location post',
-             eta.Pas = md('eta (Pa s)'),
+             eta.kPas = md('eta (kPa s)'),
              # curve.invm = 'Curvature (m^-1)',
              # strain.pct = 'Strain',
              # angle.deg = 'Angle (o)',
@@ -1756,8 +1780,7 @@ displaytab <-
              # value = '',
              # units = '',
              Lbody.mm = 'Body length (mm)',
-             method = 'Method',
-             citenum = '')
+             method = 'Method')
   # tab_spanner('Change in E when',
   #             columns = contains('dE.')) |>
   # tab_spanner('Original measurement',
@@ -1767,13 +1790,15 @@ displaytab
 ```
 
 ```{r}
-gtsave(displaytab, 'mechtable2.docx')
+gtsave(displaytab, 'mechtable5-.docx')
 ```
 
 ```{r}
 note <-
   citenum |> 
-  mutate(note = str_c(citenum, cite, sep = ' '))
+  mutate(cite = str_replace(cite, " \\(", ", "),
+         cite = str_replace(cite, "\\)", "")) |> 
+  mutate(note = str_c(citenum, cite, sep = ''))
 
 do.call(paste, c(sep = '; ', as.list(note$note)))
 ```
